@@ -2,29 +2,45 @@
 #include "ast.h"
 
 extern token_st global_token;
+extern Type     global_type;
 
-
-
+std::map<char, int> BinopPrecedence;
 
 int main() {
 
+  BinopPrecedence[GT_t] = 10;
+  BinopPrecedence[PLUS_t] = 20;
+  BinopPrecedence[MIN_t] = 20;
+  BinopPrecedence[MUL_t] = 40;  // highest.
 
-    int i = 0;
-    global_token = {};
-    global_token.type = UNKNOWN_t;
-    global_token = gettok();
-    while(true) {
-      switch (global_token.type) {
-        case EOF_t:
-          printf("reached EOF token\n");
-          return 0;
-        // case ID_t:
-        //   ();
+  int i = 0;
+  global_token = {};
+  global_type = {};
+  global_token.type = UNKNOWN_t;
+  global_token = gettok();
+  while(true) {
+    switch (global_token.type) {
+      case EOF_t:
+        printf("reached EOF token\n");
+        return 0;
+      case ID_t:
+        parse_identifier_exp();
+        break;
+      case TYPE_t:
+        printf("found a type\n");
+        global_type = global_token.data.data_type;
+        getNextToken();
+        parse_identifier_exp();
+      break;
 
-        default:
-          getNextToken();
-      }
+      case EXTERN_t:
+        printf("found extern\n");
+        handle_extern();
+        break;
+      default:
+        handle_top_level_exp();
     }
+  }
 
     // while(true) {
     //   global_token = gettok();
