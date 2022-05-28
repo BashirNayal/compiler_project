@@ -1,5 +1,12 @@
 #include "lexer.h"
 
+
+
+token_st global_token;
+
+
+
+
 token_st gettok(void) {
   std::string read_string;
   token_st token = {};
@@ -53,6 +60,7 @@ token_st gettok(void) {
       strcpy(token.data.name, read_string.c_str());
       token.type = ID_t;
     }
+    print_token(token);
     return token;
   }
 
@@ -65,6 +73,7 @@ token_st gettok(void) {
 
     token.type = INTCONST_t;
     token.data.int_value = strtod(NumStr.c_str(), nullptr);
+    print_token(token);
     return token;
   }
 
@@ -81,6 +90,7 @@ token_st gettok(void) {
   // Check for end of file.  Don't eat the EOF.
   if (last_char == EOF) {
     token.type = EOF_t;
+    print_token(token);
     return token;
   }
   char current_char = last_char;
@@ -135,9 +145,11 @@ token_st gettok(void) {
       }
       break;
   }
+  print_token(token);
   return token;
 }
 void print_token(token_st token) {
+  printf("current token:\t");
   switch (token.type) {
     case LT_t:
       printf("(LT, '<')\n");
@@ -257,4 +269,6 @@ void print_token(token_st token) {
   }
 }
 
-
+token_st getNextToken() {
+  return global_token = gettok();
+}

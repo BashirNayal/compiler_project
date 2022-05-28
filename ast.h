@@ -5,6 +5,8 @@
 #include <vector>
 #include "lexer.h"
 
+void handle_typed_expr();
+
 class Expression {
 public:
   virtual ~Expression() {}
@@ -39,22 +41,23 @@ public:
 
 class CallExpression : public Expression {
   std::string Callee;
-  std::vector<std::unique_ptr<Expression>> Args;
+  std::vector<std::unique_ptr<Expression>> args;
 
 public:
   CallExpression(const std::string &Callee,
-              std::vector<std::unique_ptr<Expression>> Args)
-    : Callee(Callee), Args(std::move(Args)) {}
+              std::vector<std::unique_ptr<Expression>> args)
+    : Callee(Callee), args(std::move(args)) {}
 };
 
 
 class PrototypeAST {
   std::string Name;
-  std::vector<std::string> Args;
+  std::vector<std::string> args;
+  std::vector<Type> types;
 
 public:
-  PrototypeAST(const std::string &name, std::vector<std::string> Args)
-    : Name(name), Args(std::move(Args)) {}
+  PrototypeAST(const std::string &name, std::vector<std::string> args)
+    : Name(name), args(std::move(args)) {}
 
   const std::string &getName() const { return Name; }
 };
@@ -70,3 +73,8 @@ public:
 };
 
 std::unique_ptr<Expression> parse_token(token_st current_token);
+static std::unique_ptr<Expression> ParsePrimary();
+
+
+
+

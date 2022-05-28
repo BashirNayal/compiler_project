@@ -87,3 +87,4 @@ typedef struct token_s {
 
 void print_token(token_st token);
 token_st gettok(void);
+token_st getNextToken();
