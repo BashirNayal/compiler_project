@@ -29,8 +29,9 @@ int main() {
       case TYPE_t:
         printf("found a type\n");
         global_type = global_token.data.data_type;
-        getNextToken();
-        parse_identifier_exp();
+        parse_id_or_fun().get()->print("");
+        // getNextToken();
+        // parse_identifier_exp();
       break;
 
       case EXTERN_t:

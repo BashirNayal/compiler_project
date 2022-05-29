@@ -51,57 +51,55 @@ static std::unique_ptr<Expression> parse_paren_expr() {
 std::unique_ptr<Expression> parse_identifier_exp() {
   //TODO: Check where var name is stored
   // std::string id_name = global_token.data.id;
-  std::string id_name = global_token.data.name;
+  // std::string id_name = global_token.data.name;
 
-  getNextToken();  // eat identifier name.
+  // getNextToken();  // eat identifier name.
 
 
 
-  if (global_token.type != LPAREN_t) {// Simple variable ref. 
-  //TODO: Add the variable type
-    printf("parsed a variable name\n");
-    return std::make_unique<Variable>(id_name);
-  }
+  // if (global_token.type != LPAREN_t) {// Simple variable ref. 
+  // //TODO: Add the variable type
+  //   printf("parsed a variable name\n");
+  //   // return std::make_unique<Variable>(id_name);
+  // }
 
-  getNextToken();  // eat (
-  // Call.
-  if (global_token.type != TYPE_t) {
-    printf("parsing a call\n");
-    std::vector<std::unique_ptr<Expression>> args;
-    if (global_token.type != RPAREN_t) {
-      while (1) {
-        if (auto Arg = ParseExpression())
-          args.push_back(std::move(Arg));
-        else
-          return nullptr;
+  // getNextToken();  // eat (
+  // // Call.
+  // if (global_token.type != TYPE_t) {
+  //   printf("parsing a call\n");
+  //   std::vector<std::unique_ptr<Expression>> args;
+  //   if (global_token.type != RPAREN_t) {
+  //     while (1) {
+  //       if (auto Arg = ParseExpression())
+  //         args.push_back(std::move(Arg));
+  //       else
+  //         return nullptr;
 
-        if (global_token.type == RPAREN_t)
-          break;
+  //       if (global_token.type == RPAREN_t)
+  //         break;
 
-        if (global_token.type != COMMA_t) {
-          fprintf(stderr, "Expected ')' or ',' in argument list");
-          return nullptr;
-        }
-        getNextToken();
-      }
-    }
+  //       if (global_token.type != COMMA_t) {
+  //         fprintf(stderr, "Expected ')' or ',' in argument list");
+  //         return nullptr;
+  //       }
+  //       getNextToken();
+  //     }
+  //   }
 
-    // Eat the ')'.
-    getNextToken();
+  //   // Eat the ')'.
+  //   getNextToken();
 
-    return std::make_unique<CallExpression>(id_name, std::move(args));
-  }
-  else {
+  //   return std::make_unique<CallExpression>(id_name, std::move(args));
+  // }
+  // else {
 
-  }
+  // }
 
 }
 
 
 
 static std::unique_ptr<Expression> ParsePrimary() {
-
-
 
   switch (global_token.type) {
   default:
@@ -151,7 +149,7 @@ static std::unique_ptr<Expression> ParseBinOpRHS(int ExprPrec,
     // Merge LHS/RHS.
     LHS =
         std::make_unique<Operator>(std::move(LHS), (char)BinOp, std::move(RHS));
-    LHS.get()->print();
+    // LHS.get()->print();
   }
 }
 
@@ -167,36 +165,36 @@ void handle_top_level_exp() {
 
 static std::unique_ptr<PrototypeAST> ParsePrototype() {
 
-  //TODO: Store type here and eat it
-  if (global_token.type != ID_t) {
-    fprintf(stderr, "Expected function name in prototype\n");
-    return nullptr;
-  }
+  // //TODO: Store type here and eat it
+  // if (global_token.type != ID_t) {
+  //   fprintf(stderr, "Expected function name in prototype\n");
+  //   return nullptr;
+  // }
 
-  print_token(global_token);
+  // print_token(global_token);
 
-  std::string FnName = global_token.data.name;
-  getNextToken();
+  // std::string FnName = global_token.data.name;
+  // getNextToken();
 
-  if (global_token.type != '(')
-    fprintf(stderr, "Expected '(' in prototype");
-  print_token(global_token);
+  // if (global_token.type != '(')
+  //   fprintf(stderr, "Expected '(' in prototype");
+  // print_token(global_token);
 
-  std::vector<std::string> ArgNames;
-  token_st temp_token = getNextToken();
-  while (temp_token.type == ID_t) {
-    ArgNames.push_back(temp_token.data.name);
-    temp_token = getNextToken();
-  }
-  if (global_token.type != ')') {
-    fprintf(stderr, "Expected ')' in prototype");
-    return nullptr;
-  }
+  // std::vector<std::string> ArgNames;
+  // token_st temp_token = getNextToken();
+  // while (temp_token.type == ID_t) {
+  //   ArgNames.push_back(temp_token.data.name);
+  //   temp_token = getNextToken();
+  // }
+  // if (global_token.type != ')') {
+  //   fprintf(stderr, "Expected ')' in prototype");
+  //   return nullptr;
+  // }
 
-  // success.
-  getNextToken(); // eat ')'.
+  // // success.
+  // getNextToken(); // eat ')'.
 
-  return std::make_unique<PrototypeAST>(FnName, std::move(ArgNames));
+  // return std::make_unique<PrototypeAST>(FnName, std::move(ArgNames));
 }
 
 
@@ -221,15 +219,140 @@ static std::unique_ptr<FunctionAST> ParseDefinition() {
   if (!Proto) return nullptr;
 
   if (auto E = ParseExpression())
-    return std::make_unique<FunctionAST>(std::move(Proto), std::move(E));
+    // return std::make_unique<FunctionAST>(std::move(Proto), std::move(E));
   return nullptr;
 }
 
 static std::unique_ptr<FunctionAST> ParseTopLevelExpr() {
   if (auto E = ParseExpression()) {
     // Make an anonymous proto.
-    auto Proto = std::make_unique<PrototypeAST>("", std::vector<std::string>());
-    return std::make_unique<FunctionAST>(std::move(Proto), std::move(E));
+    // auto Proto = std::make_unique<PrototypeAST>("", std::vector<std::string>());
+    // return std::make_unique<FunctionAST>(std::move(Proto), std::move(E));
   }
   return nullptr;
+}
+
+std::unique_ptr<Expression> parse_expression() {
+  std::unique_ptr<Expression> expr;
+  switch (global_token.type) {
+    case INTCONST_t:
+      expr = std::make_unique<Const>(global_token.data.int_value);
+      getNextToken(); // eat const
+      if (global_token.type != SEMICOL_t) {
+        printf("ERROR: Expected ';'\n");
+      }
+      else {
+        getNextToken(); // eat ';'
+        print_token(global_token);
+        return expr;
+      }
+      break;
+    default:
+      printf("default case\n");
+        
+  }
+
+}
+
+std::unique_ptr<Expression> parse_typed_expression() {
+
+  Type var_type = global_token.data.data_type;
+  getNextToken(); // Eat the type
+  std::string var_name = global_token.data.name;
+  getNextToken(); // Eat the name
+  printf("got var name '%s' of type '%d'\n" , var_name.c_str(), var_type);
+  if (global_token.type == SEMICOL_t) {
+    getNextToken(); // eat ';'
+    return std::make_unique<VarDef>(VarDef(var_name, var_type));
+
+  }
+  else if (global_token.type == ASSIGN_t) {
+    printf("parsing assignment\n");
+    getNextToken(); //eat '='
+    std::unique_ptr<Expression> rhs = parse_expression();
+    // rhs.get()->print("x");
+    return std::make_unique<Assignment>(var_name, std::move(rhs));
+  }
+  
+}
+
+std::unique_ptr<Block> parse_block() {
+  std::vector<std::unique_ptr<Expression>> expressions;
+  while (global_token.type != RBRACE_t) {
+    // printf("inside the block\n");
+    // getNextToken();
+    switch (global_token.type) {
+      case TYPE_t:
+        expressions.push_back(std::move(parse_typed_expression()));
+        break;
+      default:
+        // print_token(global_token);
+        getNextToken();
+        break;
+    }
+    if (global_token.type == RBRACE_t) {
+      printf("finished parsing block\n");
+      getNextToken(); // eat '}'
+      return std::make_unique<Block>(std::move(expressions));
+    }
+  }
+
+
+}
+
+
+std::unique_ptr<Expression> parse_id_or_fun() {
+  Type id_or_fun_type = global_token.data.data_type;
+
+  getNextToken(); // Eat the type
+  std::string id_or_fun_name = global_token.data.name;
+  getNextToken(); // Eat the name
+  printf("got fun/var name '%s' of type '%d'\n" , id_or_fun_name.c_str(), id_or_fun_type);
+  
+  if (global_token.type == LBRACE_t) {} // Case of array indexing
+  else if (global_token.type == LPAREN_t) { // Case of function definition
+    getNextToken(); // Eat '('
+    printf("parsing a function def\n");
+    if (global_token.type == RPAREN_t) {
+      printf("parsing function with no parameters\n");
+      //TODO return the function here
+    }
+    //TODO: add a case where there is no parameters
+    //Get function parameters
+    std::vector<std::unique_ptr<Param>> fun_params;
+    while (true) {
+      Type param_type = global_token.data.data_type;
+      getNextToken(); // eat type
+      std::string param_name = global_token.data.name;
+      getNextToken(); // eat name
+      fun_params.push_back(std::make_unique<Param>(Param(param_name, param_type)));
+      printf("first param\n");
+      if (global_token.type == RPAREN_t) {
+        getNextToken(); // eat ')'
+        break;
+      }
+      else if (global_token.type != COMMA_t) {
+        printf("ERROR: Expected ')' or ','\n");
+        // return;
+      }
+      else {
+        getNextToken(); // eat ','
+      }
+      std::cout << "found param " << param_name << std::endl;
+    }
+    printf("parsed params\n");
+    std::unique_ptr<PrototypeAST> proto = 
+      std::make_unique<PrototypeAST>(PrototypeAST(std::move(fun_params), id_or_fun_name));
+    // proto.get()->print("");
+    if (global_token.type == LBRACE_t) {
+      printf("parsing function body\n");
+      getNextToken(); //eat '{'
+      std::unique_ptr<Block> block = parse_block();
+      std::unique_ptr<FunctionAST> temp =
+        std::make_unique<FunctionAST>(std::move(proto), std::move(block));
+      return std::move(temp);
+    }
+    //TODO: parse the body
+    // return proto;
+  }
 }
