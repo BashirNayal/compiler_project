@@ -153,15 +153,15 @@ static std::unique_ptr<Expression> ParseBinOpRHS(int ExprPrec,
   }
 }
 
-void handle_top_level_exp() {
-  // Evaluate a top-level expression into an anonymous function.
-  if (ParseTopLevelExpr()) {
-    fprintf(stderr, "Parsed a top-level expr\n");
-  } else {
-    // Skip token for error recovery.
-    getNextToken();
-  }
-}
+// void handle_top_level_exp() {
+//   // Evaluate a top-level expression into an anonymous function.
+//   if (ParseTopLevelExpr()) {
+//     fprintf(stderr, "Parsed a top-level expr\n");
+//   } else {
+//     // Skip token for error recovery.
+//     getNextToken();
+//   }
+// }
 
 static std::unique_ptr<PrototypeAST> ParsePrototype() {
 
@@ -213,43 +213,84 @@ void handle_extern() {
 }
 
 
-static std::unique_ptr<FunctionAST> ParseDefinition() {
-  getNextToken();  // eat def.
-  auto Proto = ParsePrototype();
-  if (!Proto) return nullptr;
+// static std::unique_ptr<FunctionAST> ParseDefinition() {
+//   getNextToken();  // eat def.
+//   auto Proto = ParsePrototype();
+//   if (!Proto) return nullptr;
 
-  if (auto E = ParseExpression())
-    // return std::make_unique<FunctionAST>(std::move(Proto), std::move(E));
-  return nullptr;
-}
+//   if (auto E = ParseExpression())
+//     // return std::make_unique<FunctionAST>(std::move(Proto), std::move(E));
+//   return nullptr;
+// }
 
-static std::unique_ptr<FunctionAST> ParseTopLevelExpr() {
-  if (auto E = ParseExpression()) {
-    // Make an anonymous proto.
-    // auto Proto = std::make_unique<PrototypeAST>("", std::vector<std::string>());
-    // return std::make_unique<FunctionAST>(std::move(Proto), std::move(E));
-  }
-  return nullptr;
-}
+// static std::unique_ptr<FunctionAST> ParseTopLevelExpr() {
+//   if (auto E = ParseExpression()) {
+//     // Make an anonymous proto.
+//     // auto Proto = std::make_unique<PrototypeAST>("", std::vector<std::string>());
+//     // return std::make_unique<FunctionAST>(std::move(Proto), std::move(E));
+//   }
+//   return nullptr;
+// }
 
 std::unique_ptr<Expression> parse_expression() {
   std::unique_ptr<Expression> expr;
+  char * id_name;
+  // std::unique_ptr<Expression> lhs;
   switch (global_token.type) {
     case INTCONST_t:
       expr = std::make_unique<Const>(global_token.data.int_value);
       getNextToken(); // eat const
-      if (global_token.type != SEMICOL_t) {
-        printf("ERROR: Expected ';'\n");
+      if (global_token.type == SEMICOL_t) {
+        getNextToken(); // eat ';'
+        // print_token(global_token);
+        return expr;
+      }
+      break;
+    case ID_t:
+      printf("found id\n");
+      //TODO: Handle function calls or indexing;
+      id_name = global_token.data.name;
+      getNextToken(); // eat the id name
+      if (global_token.type == LPAREN_t) {
+        printf("found function call inside of block\n");
+        //TODO: parse arguments
+      }
+      else if (global_token.type == LBRACE_t) {
+        printf("found array addressing\n");
       }
       else {
-        getNextToken(); // eat ';'
-        print_token(global_token);
-        return expr;
+        //Found variable
+        expr = std::make_unique<VarUse>(VarUse(id_name));
+        //TODO 
+        if (global_token.type == SEMICOL_t) {
+          getNextToken(); // eat ';'
+          return expr;
+        }
       }
       break;
     default:
       printf("default case\n");
         
+  }
+  switch (global_token.type) {
+    case PLUS_t:
+      print_token(global_token);
+      getNextToken(); // eat operator
+      return std::make_unique<Operator>(std::move(expr), '+', std::move(parse_expression()));
+    case MUL_t:
+      getNextToken();
+      return std::make_unique<Operator>(std::move(expr), '*', std::move(parse_expression()));
+    case DIV_t:
+      getNextToken();
+      return std::make_unique<Operator>(std::move(expr), '/', std::move(parse_expression()));
+    case MIN_t:
+      getNextToken();
+      return std::make_unique<Operator>(std::move(expr), '-', std::move(parse_expression()));
+    case LPAREN_t:
+      getNextToken();
+      printf("IMPLEMENT ME!\n");
+      
+    
   }
 
 }
@@ -267,12 +308,23 @@ std::unique_ptr<Expression> parse_typed_expression() {
 
   }
   else if (global_token.type == ASSIGN_t) {
-    printf("parsing assignment\n");
     getNextToken(); //eat '='
     std::unique_ptr<Expression> rhs = parse_expression();
     // rhs.get()->print("x");
     return std::make_unique<Assignment>(var_name, std::move(rhs));
   }
+  else if (global_token.type == LBRACK_t) {
+    printf("parsing array\n");
+    getNextToken(); // eat '['
+    std::unique_ptr<Expression> index = parse_expression();
+    if (global_token.type != RBRACK_t) {
+      printf("ERROR: failed to parse array\n");
+    }
+    if (global_token.type == RBRACK_t) {
+      getNextToken(); // eat ']'
+    }
+  }
+  
   
 }
 
@@ -284,6 +336,9 @@ std::unique_ptr<Block> parse_block() {
     switch (global_token.type) {
       case TYPE_t:
         expressions.push_back(std::move(parse_typed_expression()));
+        break;
+      case ID_t:
+        expressions.push_back(std::move(parse_expression()));
         break;
       default:
         // print_token(global_token);

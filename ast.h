@@ -51,7 +51,28 @@ public:
   // std::string get_name() {return Name;}
   // std::string stringify() {return Name.c_str();}
   // void print() {printf("Variable node: %s " , Name.c_str());}
+  void print(std::string str) {
+    std::cout << str << "VAR DEF\n";
+    std::cout << str << "--VARNAME: " << Name << std::endl;
+  }
 };
+class VarUse : public Expression {
+  std::string Name;
+  std::unique_ptr<Expression> value; //TODO remove this
+
+public:
+  VarUse(const std::string &Name, std::unique_ptr<Expression> value) : Name(Name), value(std::move(value)){}
+  VarUse(const std::string &Name) : Name(Name){}
+  // std::string get_name() {return Name;}
+  // std::string stringify() {return Name.c_str();}
+  void print(std::string str) {
+    std::cout << str << "VAR USE\n";
+    std::cout << str << "--VARNAME: " << Name << std::endl;
+    if (value) value.get()->print(str + "--");
+    
+  }
+};
+
 class Param : public Expression {
   std::string Name;
   Type type;
@@ -75,13 +96,12 @@ public:
                 std::unique_ptr<Expression> rhs)
     : Op(op), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
-  // void print() {
-  //   printf("Operator node: (");
-  //   lhs.get()->print();
-  //   printf(" %c ", Op);
-  //   rhs.get()->print();
-  //   printf(") ");
-  // }
+  void print(std::string str) {
+    std::cout << str << "OPERATOR\n";
+    lhs.get()->print(str + "--");
+    std::cout << str << Op << std::endl;
+    rhs.get()->print(str + "--");
+  }
 
 
 
@@ -113,7 +133,7 @@ class PrototypeAST {
   }
 };
 
-class Block {
+class Block : public Expression{
   std::vector<std::unique_ptr<Expression>> expressions;
 
   public:

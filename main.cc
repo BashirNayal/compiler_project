@@ -7,7 +7,7 @@ extern Type     global_type;
 std::map<char, int> BinopPrecedence;
 
 int main() {
-
+  setvbuf(stdout, NULL, _IONBF, 0);
   BinopPrecedence[GT_t] = 10;
   BinopPrecedence[PLUS_t] = 20;
   BinopPrecedence[MIN_t] = 20;
@@ -39,7 +39,8 @@ int main() {
         handle_extern();
         break;
       default:
-        handle_top_level_exp();
+        getNextToken();
+        // handle_top_level_exp();
     }
   }
 
