@@ -1,15 +1,16 @@
-#pragma once
+// #pragma once
+#ifndef AST_H
+#define AST_H
 
-#include <string>
-#include <memory>
-#include <vector>
 #include "lexer.h"
+#include "common.h"
 
 void handle_typed_expr();
 
 class Expression {
 public:
   virtual ~Expression() {}
+  virtual llvm::Value *codegen() = 0;
   virtual std::string stringify() {return nullptr;}
   // virtual void print(/*char* str = ""*/) {return;}
   virtual void print(std::string str) {return;}
@@ -25,6 +26,7 @@ public:
   void print(std::string str) {
     std::cout << str << val << std::endl;
   }
+  virtual llvm::Value *codegen() {return nullptr;}
 };
 
 class Assignment : public Expression {
@@ -40,14 +42,15 @@ class Assignment : public Expression {
     std::cout << str + "--VARNAME: " << var_name << std::endl;
     value.get()->print(str + "--");
   }
+  virtual llvm::Value *codegen() {return nullptr;}
 };
 
 class VarDef : public Expression {
   std::string Name;
-  Type type;
+  Type_en type;
 
 public:
-  VarDef(const std::string &Name, Type type) : Name(Name), type(type){}
+  VarDef(const std::string &Name, Type_en type) : Name(Name), type(type){}
   // std::string get_name() {return Name;}
   // std::string stringify() {return Name.c_str();}
   // void print() {printf("Variable node: %s " , Name.c_str());}
@@ -55,6 +58,7 @@ public:
     std::cout << str << "VAR DEF\n";
     std::cout << str << "--VARNAME: " << Name << std::endl;
   }
+  virtual llvm::Value *codegen() {return nullptr;}
 };
 class VarUse : public Expression {
   std::string Name;
@@ -69,21 +73,22 @@ public:
     std::cout << str << "VAR USE\n";
     std::cout << str << "--VARNAME: " << Name << std::endl;
     if (value) value.get()->print(str + "--");
-    
   }
+  virtual llvm::Value *codegen() {return nullptr;}
 };
 
 class Param : public Expression {
   std::string Name;
-  Type type;
+  Type_en type;
 
 public:
-  Param(const std::string &Name, const Type type) : Name(Name), type(type) {}
+  Param(const std::string &Name, const Type_en type) : Name(Name), type(type) {}
   std::string get_name() {return Name;}
   std::string stringify() {return Name.c_str();}
-    void print(std::string str) {
-      std::cout << str << "PARAM: " << type << " " << Name << std::endl;
-    }
+  void print(std::string str) {
+    std::cout << str << "PARAM: " << type << " " << Name << std::endl;
+  }
+  virtual llvm::Value *codegen() {return nullptr;}
 };
 
 
@@ -102,7 +107,7 @@ public:
     std::cout << str << Op << std::endl;
     rhs.get()->print(str + "--");
   }
-
+  virtual llvm::Value *codegen() {return nullptr;}
 
 
 };
@@ -115,6 +120,7 @@ public:
   CallExpression(const std::string &Callee,
               std::vector<std::unique_ptr<Expression>> args)
     : Callee(Callee), args(std::move(args)) {}
+  virtual llvm::Value *codegen() {return nullptr;}
 };
 
 
@@ -131,6 +137,8 @@ class PrototypeAST {
       parameters.at(i).get()->print(str + "--");
     }
   }
+  virtual llvm::Value *codegen() {return nullptr;}
+  std::string get_name() {return fun_name;}
 };
 
 class Block : public Expression{
@@ -146,6 +154,7 @@ class Block : public Expression{
         expressions.at(i).get()->print(str + "--");
       }
     }
+    virtual llvm::Value *codegen() {return nullptr;}
 };
 
 class FunctionAST : public Expression{ //TODO: This might be bad/ add a node class
@@ -162,6 +171,7 @@ public:
     Proto.get()->print(str + "--");
     Body.get()->print(str + "--");
   }
+  llvm::Value *codegen() override;
 };
 std::unique_ptr<Expression> parse_identifier_exp();
 std::unique_ptr<Expression> parse_token(token_st current_token);
@@ -176,3 +186,4 @@ std::unique_ptr<Expression> parse_id_or_fun();
 std::unique_ptr<Block> parse_block();
 
 
+#endif

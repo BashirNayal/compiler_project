@@ -1,17 +1,9 @@
 #pragma once
 
-#include <cctype>
-#include <cstdio>
-#include <cstdlib>
-#include <map>
-#include <memory>
-#include <string>
-#include <utility>
-#include <vector>
-#include <iostream>
+
 #include "unistd.h"
 #include "string.h"
-#include "vector"
+#include "common.h"
 
 #define MAX_MAPPING_LEN 64
 
@@ -47,7 +39,7 @@ enum Token {
     UNKNOWN_t
 
 };
-enum Type {
+enum Type_en {
   INT_t,
   FLOAT_t,
   DOUBLE_t,
@@ -79,7 +71,7 @@ typedef struct token_s {
     int32_t int_value;
     bool bool_value;
     uint32_t id;
-    Type data_type;
+    Type_en data_type;
     char * name;
   }data;
 } token_st;

@@ -3,7 +3,7 @@
 
 
 token_st global_token;
-Type global_type;
+Type_en global_type;
 
 
 

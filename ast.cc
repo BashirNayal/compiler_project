@@ -1,9 +1,10 @@
 #include "ast.h"
-#include "lexer.h"
+
 
 extern token_st             global_token;
-extern Type                 global_type;
+extern Type_en                 global_type;
 extern std::map<char, int>  BinopPrecedence;
+
 
 /// GetTokPrecedence - Get the precedence of the pending binary operator token.
 static int GetTokPrecedence() {
@@ -297,7 +298,7 @@ std::unique_ptr<Expression> parse_expression() {
 
 std::unique_ptr<Expression> parse_typed_expression() {
 
-  Type var_type = global_token.data.data_type;
+  Type_en var_type = global_token.data.data_type;
   getNextToken(); // Eat the type
   std::string var_name = global_token.data.name;
   getNextToken(); // Eat the name
@@ -357,7 +358,7 @@ std::unique_ptr<Block> parse_block() {
 
 
 std::unique_ptr<Expression> parse_id_or_fun() {
-  Type id_or_fun_type = global_token.data.data_type;
+  Type_en id_or_fun_type = global_token.data.data_type;
 
   getNextToken(); // Eat the type
   std::string id_or_fun_name = global_token.data.name;
@@ -376,7 +377,7 @@ std::unique_ptr<Expression> parse_id_or_fun() {
     //Get function parameters
     std::vector<std::unique_ptr<Param>> fun_params;
     while (true) {
-      Type param_type = global_token.data.data_type;
+      Type_en param_type = global_token.data.data_type;
       getNextToken(); // eat type
       std::string param_name = global_token.data.name;
       getNextToken(); // eat name
@@ -411,3 +412,8 @@ std::unique_ptr<Expression> parse_id_or_fun() {
     // return proto;
   }
 }
+
+
+// llvm::Value *FunctionAST::codegen() {
+//   return nullptr;
+// }
