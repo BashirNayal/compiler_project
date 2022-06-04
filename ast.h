@@ -1,4 +1,4 @@
-// #pragma once
+#pragma once
 #ifndef AST_H
 #define AST_H
 
@@ -17,16 +17,16 @@ public:
 };
 
 class Const : public Expression {
-  double val;
+  int val;
 
 public:
-  Const(double val) : val(val) {}
-  std::string stringify() {return std::to_string(val);}
+  Const(int val) : val(val) {}
   // void print() {printf("Const node: %s ", std::to_string(val).c_str());}
   void print(std::string str) {
     std::cout << str << val << std::endl;
   }
-  virtual llvm::Value *codegen() {return nullptr;}
+  virtual llvm::Value *codegen() override;
+  int get_val() {return val;}
 };
 
 class Assignment : public Expression {
@@ -42,7 +42,20 @@ class Assignment : public Expression {
     std::cout << str + "--VARNAME: " << var_name << std::endl;
     value.get()->print(str + "--");
   }
-  virtual llvm::Value *codegen() {return nullptr;}
+  virtual llvm::Value *codegen() override;
+};
+class Return : public Expression {
+  std::unique_ptr<Expression> value;
+  
+  public:
+    Return(std::unique_ptr<Expression> value)
+      : value(std::move(value)) {}
+
+  void print(std::string str) {
+    std::cout << str << "return\n";
+    value.get()->print(str + "--");
+  }
+  virtual llvm::Value *codegen() override;
 };
 
 class VarDef : public Expression {
@@ -137,7 +150,7 @@ class PrototypeAST {
       parameters.at(i).get()->print(str + "--");
     }
   }
-  virtual llvm::Value *codegen() {return nullptr;}
+  llvm::Function *codegen();
   std::string get_name() {return fun_name;}
 };
 
@@ -154,7 +167,7 @@ class Block : public Expression{
         expressions.at(i).get()->print(str + "--");
       }
     }
-    virtual llvm::Value *codegen() {return nullptr;}
+    virtual llvm::Value *codegen() override;
 };
 
 class FunctionAST : public Expression{ //TODO: This might be bad/ add a node class
@@ -171,7 +184,7 @@ public:
     Proto.get()->print(str + "--");
     Body.get()->print(str + "--");
   }
-  llvm::Value *codegen() override;
+  llvm::Function *codegen();
 };
 std::unique_ptr<Expression> parse_identifier_exp();
 std::unique_ptr<Expression> parse_token(token_st current_token);
@@ -182,8 +195,10 @@ static std::unique_ptr<FunctionAST> ParseTopLevelExpr();
 
 void handle_extern();
 void handle_top_level_exp();
+std::unique_ptr<Expression> parse_return();
 std::unique_ptr<Expression> parse_id_or_fun();
 std::unique_ptr<Block> parse_block();
-
+std::unique_ptr<Expression> parse_typed_expression();
+std::unique_ptr<Expression> parse_expression();
 
 #endif

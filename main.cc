@@ -1,13 +1,10 @@
 #include "lexer.h"
 #include "ast.h"
+#include "ir.h"
 #include "common.h"
 
 
-llvm::LLVMContext TheContext;
-llvm::IRBuilder<> Builder(TheContext);
-std::unique_ptr<llvm::Module> TheModule;
 
-std::map<std::string, llvm::Value *> NamedValues;
 std::map<char, int> BinopPrecedence;
 
 extern token_st     global_token;
@@ -31,19 +28,20 @@ int main() {
   global_token.type = UNKNOWN_t;
   global_token = gettok();
   std::unique_ptr<Expression> expression;
+  // get_ir(nullptr);
   while(true) {
     switch (global_token.type) {
       case EOF_t:
         printf("reached EOF token\n");
-
-        return 0;
+        goto codegen;
       case ID_t:
         parse_identifier_exp();
         break;
       case TYPE_t:
         printf("found a type\n");
         global_type = global_token.data.data_type;
-        expression = parse_id_or_fun();
+        // expression = parse_id_or_fun();
+        expression = parse_typed_expression();
         expression.get()->print("");
 
         // getNextToken();
@@ -59,7 +57,10 @@ int main() {
         // handle_top_level_exp();
     }
   }
-
+  codegen:
+    init_module();
+    printf("codegen\n");
+    expression.get()->codegen();
 
 
   return 0;

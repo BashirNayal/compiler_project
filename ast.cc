@@ -14,7 +14,6 @@ static int GetTokPrecedence() {
   return TokPrec;
 }
 
-
 static std::unique_ptr<Expression> ParseExpression() {
   auto LHS = ParsePrimary();
   if (!LHS)
@@ -30,7 +29,8 @@ static std::unique_ptr<Expression> ParseExpression() {
 // }
 std::unique_ptr<Expression>  parse_const(token_st current_token) {
     getNextToken(); // Skip the parsed number
-    return std::make_unique<Const>((double)current_token.data.int_value);
+    log(current_token.data.int_value);
+    return std::make_unique<Const>(current_token.data.int_value);
 }
 
 
@@ -233,11 +233,17 @@ void handle_extern() {
 //   return nullptr;
 // }
 
+
+
 std::unique_ptr<Expression> parse_expression() {
   std::unique_ptr<Expression> expr;
   char * id_name;
   // std::unique_ptr<Expression> lhs;
   switch (global_token.type) {
+    case RETURN_t:
+      log("found return");
+      expr = parse_return();
+      break;
     case INTCONST_t:
       expr = std::make_unique<Const>(global_token.data.int_value);
       getNextToken(); // eat const
@@ -290,10 +296,62 @@ std::unique_ptr<Expression> parse_expression() {
     case LPAREN_t:
       getNextToken();
       printf("IMPLEMENT ME!\n");
+      exit(1);
       
     
   }
 
+}
+
+std::unique_ptr<Expression> parse_fun_def(Type_en fun_type, std::string fun_name) {
+  getNextToken(); // Eat '('
+  printf("parsing a function def\n");
+  if (global_token.type == RPAREN_t) {
+    printf("parsing function with no parameters\n");
+    //TODO return the function here
+  }
+  //TODO: add a case where there is no parameters
+  //Get function parameters
+  std::vector<std::unique_ptr<Param>> fun_params;
+  while (true) {
+    if (global_token.type == RPAREN_t) {
+      getNextToken(); // eat ')'
+      break;
+    }
+    Type_en param_type = global_token.data.data_type;
+    getNextToken(); // eat type
+    std::string param_name = global_token.data.name;
+    getNextToken(); // eat name
+    fun_params.push_back(std::make_unique<Param>(Param(param_name, param_type)));
+    printf("first param\n");
+    if (global_token.type == RPAREN_t) {
+      getNextToken(); // eat ')'
+      break;
+    }
+    else if (global_token.type != COMMA_t) {
+      printf("ERROR: Expected ')' or ','\n");
+      // return;
+    }
+    else {
+      getNextToken(); // eat ','
+    }
+    std::cout << "found param " << param_name << std::endl;
+  }
+  printf("parsed params\n");
+  std::unique_ptr<PrototypeAST> proto = 
+    std::make_unique<PrototypeAST>(PrototypeAST(std::move(fun_params), fun_name));
+  // proto.get()->print("");
+  if (global_token.type == LBRACE_t) {
+    printf("parsing function body\n");
+    getNextToken(); //eat '{'
+    std::unique_ptr<Block> block = parse_block();
+    std::unique_ptr<FunctionAST> temp =
+      std::make_unique<FunctionAST>(std::move(proto), std::move(block));
+    return std::move(temp);
+  }
+  //TODO: parse the body
+  // return proto;
+  
 }
 
 std::unique_ptr<Expression> parse_typed_expression() {
@@ -325,6 +383,10 @@ std::unique_ptr<Expression> parse_typed_expression() {
       getNextToken(); // eat ']'
     }
   }
+  else if (global_token.type == LPAREN_t) { // function 
+    printf("parsing fun_def\n");
+    return parse_fun_def(var_type, var_name);
+  }
   
   
 }
@@ -340,6 +402,9 @@ std::unique_ptr<Block> parse_block() {
         break;
       case ID_t:
         expressions.push_back(std::move(parse_expression()));
+        break;
+      case RETURN_t:
+        expressions.push_back(std::move(parse_return()));
         break;
       default:
         // print_token(global_token);
@@ -365,7 +430,7 @@ std::unique_ptr<Expression> parse_id_or_fun() {
   getNextToken(); // Eat the name
   printf("got fun/var name '%s' of type '%d'\n" , id_or_fun_name.c_str(), id_or_fun_type);
   
-  if (global_token.type == LBRACE_t) {} // Case of array indexing
+  if (global_token.type == LBRACK_t) {} // Case of array indexing
   else if (global_token.type == LPAREN_t) { // Case of function definition
     getNextToken(); // Eat '('
     printf("parsing a function def\n");
@@ -411,9 +476,22 @@ std::unique_ptr<Expression> parse_id_or_fun() {
     //TODO: parse the body
     // return proto;
   }
+  else { // case of a variable
+
+  }
 }
 
 
 // llvm::Value *FunctionAST::codegen() {
 //   return nullptr;
 // }
+
+
+std::unique_ptr<Expression> parse_return() {
+  log("parsing return");
+  getNextToken(); // eat 'return'
+  if (global_token.type == SEMICOL_t) {
+    return std::make_unique<Return>(nullptr);
+  }
+  return std::make_unique<Return>(std::move(parse_expression()));
+}

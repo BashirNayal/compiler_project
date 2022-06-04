@@ -1,4 +1,6 @@
 #pragma once
+#ifndef common_H
+#define common_H
 
 #include <string>
 #include <memory>
@@ -11,3 +13,7 @@
 #include <utility>
 
 #include "llvm.h"
+
+#define log(str) llvm::errs() << str << "\n"
+
+#endif

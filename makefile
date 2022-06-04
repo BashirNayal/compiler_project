@@ -1,5 +1,5 @@
 
-OBJS = main.o  ast.o lexer.o ir.o
+OBJS = main.o  ast.o lexer.o ir.o 
 HEADERS = lexer.h ast.h llvm.h ir.h common.h
 OUT = comp.bin
 FLAGS =
@@ -16,13 +16,18 @@ LLVM_FLAGS=`llvm-config-14 --cxxflags --ldflags --system-libs --libs core`#mcjit
 all: $(OBJS)
 	$(CC) -o $(OUT) $(OBJS) $(LLVM_FLAGS)
 
+# common.o: common.cc $(HEADERS)
+# 	$(CC) -c $(FLAGS) common.cc $(LLVM_HDRS)
+
 ast.o: ast.cc $(HEADERS)
 	$(CC) -c  $(FLAGS) ast.cc $(LLVM_FLAGS) $(LLVM_HDRS)
 	
 lexer.o: lexer.cc $(HEADERS)
 	$(CC) -c $(FLAGS) lexer.cc $(LLVM_HDRS)
-ir.o: ir.cc ir.h llvm.h
+
+ir.o: ir.cc $(HEADERS)
 	$(CC) -c $(FLAGS) ir.cc $(LLVM_HDRS)
+
 
 main.o: main.cc $(HEADERS)
 	$(CC) -c $(FLAGS) main.cc $(LLVM_HDRS)
