@@ -148,7 +148,7 @@ token_st gettok(void) {
    
   return token;
 }
-void print_token(token_st token) {
+void print_token(token_st token = global_token) {
   printf("current token:\t");
   switch (token.type) {
     case LT_t:

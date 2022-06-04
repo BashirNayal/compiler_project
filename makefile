@@ -2,7 +2,7 @@
 OBJS = main.o  ast.o lexer.o ir.o 
 HEADERS = lexer.h ast.h llvm.h ir.h common.h
 OUT = comp.bin
-FLAGS =
+FLAGS = -g
 # LIB_DIRS= /lib/llvm-14
 LLVM_HDRS= `llvm-config-14 --cxxflags`
 
@@ -20,7 +20,7 @@ all: $(OBJS)
 # 	$(CC) -c $(FLAGS) common.cc $(LLVM_HDRS)
 
 ast.o: ast.cc $(HEADERS)
-	$(CC) -c  $(FLAGS) ast.cc $(LLVM_FLAGS) $(LLVM_HDRS)
+	$(CC) ast.h -c  $(FLAGS) ast.cc $(LLVM_FLAGS) $(LLVM_HDRS)
 	
 lexer.o: lexer.cc $(HEADERS)
 	$(CC) -c $(FLAGS) lexer.cc $(LLVM_HDRS)

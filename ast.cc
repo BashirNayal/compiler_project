@@ -245,9 +245,10 @@ std::unique_ptr<Expression> parse_expression() {
       expr = parse_return();
       break;
     case INTCONST_t:
+    log("found const " << global_token.data.int_value);
       expr = std::make_unique<Const>(global_token.data.int_value);
       getNextToken(); // eat const
-      if (global_token.type == SEMICOL_t) {
+      if (global_token.type == SEMICOL_t || global_token.type == RPAREN_t) {
         getNextToken(); // eat ';'
         // print_token(global_token);
         return expr;
@@ -269,8 +270,8 @@ std::unique_ptr<Expression> parse_expression() {
         //Found variable
         expr = std::make_unique<VarUse>(VarUse(id_name));
         //TODO 
-        if (global_token.type == SEMICOL_t) {
-          getNextToken(); // eat ';'
+        if (global_token.type == SEMICOL_t || global_token.type == RPAREN_t) {
+          getNextToken(); // eat ';' or ')'
           return expr;
         }
       }
@@ -297,6 +298,13 @@ std::unique_ptr<Expression> parse_expression() {
       getNextToken();
       printf("IMPLEMENT ME!\n");
       exit(1);
+    case GT_t:
+      getNextToken();
+      print_token(global_token);
+      std::unique_ptr<Expression> rhs = parse_expression();
+      rhs.get()->print("test");
+      return std::make_unique<Operator>(std::move(expr), '>', std::move(rhs));
+      
       
     
   }
@@ -406,6 +414,10 @@ std::unique_ptr<Block> parse_block() {
       case RETURN_t:
         expressions.push_back(std::move(parse_return()));
         break;
+      case IF_t:
+        expressions.push_back(std::move(parse_if()));
+        break;
+
       default:
         // print_token(global_token);
         getNextToken();
@@ -494,4 +506,26 @@ std::unique_ptr<Expression> parse_return() {
     return std::make_unique<Return>(nullptr);
   }
   return std::make_unique<Return>(std::move(parse_expression()));
+}
+
+std::unique_ptr<Expression> parse_if() {
+  log("parsing if");
+  getNextToken(); // eat 'if'
+  if (global_token.type != LPAREN_t) {
+    log("ERROR: expected '(' after 'if'");
+    return nullptr;
+  }
+  getNextToken(); // eat '('
+  std::unique_ptr<Expression> cond = parse_expression();
+  log("parsed if cond");
+  if (global_token.type != LBRACE_t) {
+    log("ERROR: expected '{' after if statement");
+    return nullptr;
+  }
+  getNextToken(); // eat '{'
+  std::unique_ptr<Block> body = parse_block();
+  // cond.get()->print("ii");
+  log("parsed if body");
+  // body.get()->print("aa");
+  return std::make_unique<If>(std::move(cond), std::move(body));
 }

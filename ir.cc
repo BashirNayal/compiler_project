@@ -125,6 +125,12 @@ llvm::Value *Block::codegen() {
     exp->codegen();
   }
 }
+llvm::Value *If::codegen() {
+  log("codegen if");
+}
+llvm::Value * Elif::codegen() {
+  log("codegen elif");
+}
 
 
 llvm::Function *FunctionAST::codegen() {

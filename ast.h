@@ -68,8 +68,8 @@ public:
   // std::string stringify() {return Name.c_str();}
   // void print() {printf("Variable node: %s " , Name.c_str());}
   void print(std::string str) {
-    std::cout << str << "VAR DEF\n";
-    std::cout << str << "--VARNAME: " << Name << std::endl;
+    std::cout << str << "var def\n";
+    std::cout << str << "--name: " << Name << std::endl;
   }
   virtual llvm::Value *codegen() {return nullptr;}
 };
@@ -83,9 +83,9 @@ public:
   // std::string get_name() {return Name;}
   // std::string stringify() {return Name.c_str();}
   void print(std::string str) {
-    std::cout << str << "VAR USE\n";
-    std::cout << str << "--VARNAME: " << Name << std::endl;
-    if (value) value.get()->print(str + "--");
+    std::cout << str << "var use\n";
+    std::cout << str << "--name: " << Name << std::endl;
+    // if (value) value.get()->print(str + "--");
   }
   virtual llvm::Value *codegen() {return nullptr;}
 };
@@ -118,10 +118,10 @@ public:
     std::cout << str << "OPERATOR\n";
     lhs.get()->print(str + "--");
     std::cout << str << Op << std::endl;
+    if (!rhs) log("wtf");
     rhs.get()->print(str + "--");
   }
   virtual llvm::Value *codegen() {return nullptr;}
-
 
 };
 
@@ -170,6 +170,38 @@ class Block : public Expression{
     virtual llvm::Value *codegen() override;
 };
 
+class Elif : public Expression {
+  std::unique_ptr<Expression> cond;
+  std::unique_ptr<Block> body;
+  public:
+  Elif(std::unique_ptr<Expression> cond, 
+    std::unique_ptr<Block> body) : 
+    cond(std::move(cond)), body(std::move(body)) {}
+  virtual llvm::Value *codegen() override;
+};
+
+class If : public Expression {
+  std::unique_ptr<Expression> cond;
+  std::unique_ptr<Block> body;
+  std::vector<std::unique_ptr<Elif>> elif;
+  public:
+    If(std::unique_ptr<Expression> cond, 
+      std::unique_ptr<Block> body, 
+      std::vector<std::unique_ptr<Elif>> elif) :
+      cond(std::move(cond)), body(std::move(body)), elif(std::move(elif)) {}
+
+    If(std::unique_ptr<Expression> cond, 
+      std::unique_ptr<Block> body) :
+      cond(std::move(cond)), body(std::move(body)) {}
+    void print(std::string str) {
+      std::cout << str << "if\n";
+      cond.get()->print(str + "--");
+      body.get()->print(str + "--");
+    }
+    virtual llvm::Value *codegen() override;
+
+};
+
 class FunctionAST : public Expression{ //TODO: This might be bad/ add a node class
   std::unique_ptr<PrototypeAST> Proto;
   std::unique_ptr<Block> Body;
@@ -200,5 +232,7 @@ std::unique_ptr<Expression> parse_id_or_fun();
 std::unique_ptr<Block> parse_block();
 std::unique_ptr<Expression> parse_typed_expression();
 std::unique_ptr<Expression> parse_expression();
+std::unique_ptr<Expression> parse_if();
+
 
 #endif
