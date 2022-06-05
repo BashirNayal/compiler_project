@@ -29,21 +29,6 @@ public:
   int get_val() {return val;}
 };
 
-class Assignment : public Expression {
-  std::string var_name;
-  std::unique_ptr<Expression> value;
-  
-  public:
-    Assignment(std::string var_name, std::unique_ptr<Expression> value)
-      : var_name(var_name), value(std::move(value)) {}
-
-  void print(std::string str) {
-    std::cout << str << "assign\n";
-    std::cout << str + "--name: " << var_name << std::endl;
-    value.get()->print(str + "--");
-  }
-  virtual llvm::Value *codegen() override;
-};
 class Return : public Expression {
   std::unique_ptr<Expression> value;
   
@@ -73,21 +58,42 @@ public:
   }
   virtual llvm::Value *codegen() {return nullptr;}
 };
+
+class Assignment : public Expression {
+  std::string var_name;
+  std::unique_ptr<Expression> value;
+  std::unique_ptr<VarDef> def;
+  
+  public:
+    Assignment(std::string var_name, std::unique_ptr<Expression> value)
+      : var_name(var_name), value(std::move(value)) {}
+    Assignment(std::string var_name, std::unique_ptr<Expression> value, std::unique_ptr<VarDef> def)
+  : var_name(var_name), def(std::move(def)), value(std::move(value)) {}
+
+  void print(std::string str) {
+    if (def) def->print(str);
+    std::cout << str << "assign\n";
+    std::cout << str + "--name: " << var_name << std::endl;
+    value.get()->print(str + "--");
+  }
+  virtual llvm::Value *codegen() override;
+};
+
 class VarUse : public Expression {
-  std::string Name;
+  std::string var_name;
   std::unique_ptr<Expression> value; //TODO remove this
 
 public:
-  VarUse(const std::string &Name, std::unique_ptr<Expression> value) : Name(Name), value(std::move(value)){}
-  VarUse(const std::string &Name) : Name(Name){}
+  VarUse(const std::string &var_name, std::unique_ptr<Expression> value) : var_name(var_name), value(std::move(value)){}
+  VarUse(const std::string &var_name) : var_name(var_name){}
   // std::string get_name() {return Name;}
   // std::string stringify() {return Name.c_str();}
   void print(std::string str) {
     std::cout << str << "var use\n";
-    std::cout << str << "--name: " << Name << std::endl;
+    std::cout << str << "--name: " << var_name << std::endl;
     // if (value) value.get()->print(str + "--");
   }
-  virtual llvm::Value *codegen() {return nullptr;}
+  virtual llvm::Value *codegen() override;
 };
 
 class Param : public Expression {

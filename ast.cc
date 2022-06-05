@@ -233,6 +233,10 @@ void handle_extern() {
 //   return nullptr;
 // }
 
+// std::unique_ptr<Expression> parse_paren_expression() {
+
+// }
+
 
 
 std::unique_ptr<Expression> parse_expression() {
@@ -266,8 +270,20 @@ std::unique_ptr<Expression> parse_expression() {
       else if (global_token.type == LBRACE_t) {
         printf("found array addressing\n");
       }
+      else if (global_token.type == ASSIGN_t) {
+        log("found var reassign");
+        getNextToken(); // eat '='
+          log("about to crash");
+          std::unique_ptr<Expression> rhs = parse_expression();
+          rhs->print("x");
+          log("crashed");
+          // rhs.get()->print("x");
+          return std::make_unique<Assignment>(id_name, std::move(rhs));
+        
+      }
       else {
-        //Found variable
+        //Found variable use
+        log("found var use");
         expr = std::make_unique<VarUse>(VarUse(id_name));
         //TODO 
         if (global_token.type == SEMICOL_t || global_token.type == RPAREN_t) {
@@ -276,6 +292,11 @@ std::unique_ptr<Expression> parse_expression() {
         }
       }
       break;
+    case LPAREN_t:
+        log("paren expression");
+        getNextToken(); // eat '('
+        expr = parse_expression();
+        break;
     default:
       printf("default case\n");
         
@@ -295,9 +316,8 @@ std::unique_ptr<Expression> parse_expression() {
       getNextToken();
       return std::make_unique<Operator>(std::move(expr), '-', std::move(parse_expression()));
     case LPAREN_t:
-      getNextToken();
-      printf("IMPLEMENT ME!\n");
-      exit(1);
+      getNextToken(); // eat '('
+
     case GT_t:
       getNextToken();
       print_token(global_token);
@@ -375,7 +395,7 @@ std::unique_ptr<Expression> parse_typed_expression() {
     getNextToken(); //eat '='
     std::unique_ptr<Expression> rhs = parse_expression();
     // rhs.get()->print("x");
-    return std::make_unique<Assignment>(var_name, std::move(rhs));
+    return std::make_unique<Assignment>(var_name, std::move(rhs),std::make_unique<VarDef>(VarDef(var_name, var_type)));
   }
   else if (global_token.type == LBRACK_t) {
     printf("parsing array\n");

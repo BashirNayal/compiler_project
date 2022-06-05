@@ -46,37 +46,23 @@ llvm::Value *Operator::codegen() {
 }
 
 llvm::Value *Assignment::codegen() {
-  printf("generating code for Assignment\n");
-  // llvm::BasicBlock *block = llvm::BasicBlock::Create(*context,"entry");
-  // builder->SetInsertPoint(block);
-  // for (auto &I : *block) {
-  //   log(I);
-  //   log("loop");
-  // }
-  // log(*int_type);
-  
-  // llvm::IntegerType *int_type = llvm::Type::getInt32Ty(*context);
-  // llvm::Value *zero = llvm::ConstantInt::get(int_type, 0);
-  // builder.get()->CreateRet(zero);
-  // // builder.get()->CreateRetVoid();
-  // log(*zero);
-  // builder.get()->CreateAlloca(int_type, zero, "test");
-  // llvm::AllocaInst(int_type, 0, "test" , block);
-  // llvm::ReturnInst(*context,*zero,*block);
-  // llvm::AllocaInst(int_type,);
-  log("before log");
+  printf("codegen assignment\n");
+  if (def) {
+    llvm::Value *AI = builder->CreateAlloca(llvm::Type::getInt32Ty(*context),nullptr, var_name);
+    named_values[var_name] = AI;
+  }
+  builder->CreateStore(value->codegen(), named_values[var_name]);
+  // builder->CreateStore(
+}
 
-  // log(*block);
-  
-  // builder.CreateAlloca(
-  // module.get()->print();
-  // llvm::PrintModulePass::PrintModulePass();
-  // llvm::errs() << "test\n";
-  // llvm::errs() << module.get() << "\n";
-  log(*module);
-  log("test");
-  // llvm::errs() << llvm::BasicBlock::Create(context,"entry")->getName() << "\n";
-  llvm::forcePrintModuleIR();
+llvm:: Value *VarUse::codegen() {
+  log("codegen varuse");
+  return named_values[var_name];
+  value->print("x");
+  llvm::Value *rhs = value->codegen();
+  log(*rhs);
+  // return builder->CreateStore(value->codegen(), named_values[var_name]);
+
 }
 
 llvm::Value *Return::codegen() {
@@ -140,12 +126,11 @@ llvm::Value *If::codegen() {
   llvm::Function *current_function = builder.get()->GetInsertBlock()->getParent();
   llvm::BasicBlock *if_start_block = llvm::BasicBlock::Create(*context, prefix + ".if", current_function);
   llvm::BasicBlock *else_start_block = nullptr;
-
   if (else_body) {
     else_start_block = llvm::BasicBlock::Create(*context, prefix + ".else", current_function);
   }
   llvm::BasicBlock *if_end_block = llvm::BasicBlock::Create(*context, prefix + ".endif", current_function);
-
+  
   if (else_start_block) {
     builder.get()->CreateCondBr(if_cond_ir, if_start_block, else_start_block);
   }
@@ -155,6 +140,7 @@ llvm::Value *If::codegen() {
 
   //populate the if body
   builder.get()->SetInsertPoint(if_start_block);
+  
   body.get()->codegen(); 
   builder.get()->CreateBr(if_end_block);
 
@@ -166,7 +152,7 @@ llvm::Value *If::codegen() {
 
   builder.get()->SetInsertPoint(if_end_block);
 
-  
+
  
 
 }
