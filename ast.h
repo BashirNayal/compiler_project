@@ -38,8 +38,8 @@ class Assignment : public Expression {
       : var_name(var_name), value(std::move(value)) {}
 
   void print(std::string str) {
-    std::cout << str << "ASSIGNMENT\n";
-    std::cout << str + "--VARNAME: " << var_name << std::endl;
+    std::cout << str << "assign\n";
+    std::cout << str + "--name: " << var_name << std::endl;
     value.get()->print(str + "--");
   }
   virtual llvm::Value *codegen() override;
@@ -99,7 +99,7 @@ public:
   std::string get_name() {return Name;}
   std::string stringify() {return Name.c_str();}
   void print(std::string str) {
-    std::cout << str << "PARAM: " << type << " " << Name << std::endl;
+    std::cout << str << "param: " << type << " " << Name << std::endl;
   }
   virtual llvm::Value *codegen() {return nullptr;}
 };
@@ -115,13 +115,13 @@ public:
     : Op(op), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
   void print(std::string str) {
-    std::cout << str << "OPERATOR\n";
+    std::cout << str << "operator\n";
     lhs.get()->print(str + "--");
     std::cout << str << Op << std::endl;
     if (!rhs) log("wtf");
     rhs.get()->print(str + "--");
   }
-  virtual llvm::Value *codegen() {return nullptr;}
+  virtual llvm::Value *codegen() override;
 
 };
 
@@ -145,7 +145,7 @@ class PrototypeAST {
               std::string fun_name)
       : parameters(move(parameters)), fun_name(fun_name) {}
   void print(std::string str) {
-    std::cout << str << "PROTO: " << fun_name << std::endl;
+    std::cout << str << "proto: " << fun_name << std::endl;
     for (int i = 0; i < parameters.size(); i++) {
       parameters.at(i).get()->print(str + "--");
     }
@@ -162,7 +162,7 @@ class Block : public Expression{
       : expressions(std::move(expressions)) {}
 
     void print(std::string str) {
-      std::cout << str << "BLOCK: " << std::endl;
+      std::cout << str << "block: " << std::endl;
       for (int i = 0; i < expressions.size(); i++) {
         expressions.at(i).get()->print(str + "--");
       }
@@ -182,13 +182,28 @@ class Elif : public Expression {
 
 class If : public Expression {
   std::unique_ptr<Expression> cond;
+  std::unique_ptr<Block> else_body;
   std::unique_ptr<Block> body;
   std::vector<std::unique_ptr<Elif>> elif;
   public:
     If(std::unique_ptr<Expression> cond, 
       std::unique_ptr<Block> body, 
+      std::unique_ptr<Block> else_body,
+      std::vector<std::unique_ptr<Elif>> elif) :
+      cond(std::move(cond)), 
+      else_body(std::move(else_body)),  
+      body(std::move(body)),
+      elif(std::move(elif)) {}
+
+    If(std::unique_ptr<Expression> cond, 
+      std::unique_ptr<Block> body, 
       std::vector<std::unique_ptr<Elif>> elif) :
       cond(std::move(cond)), body(std::move(body)), elif(std::move(elif)) {}
+
+    If(std::unique_ptr<Expression> cond, 
+      std::unique_ptr<Block> body, 
+      std::unique_ptr<Block> else_body) :
+      cond(std::move(cond)), body(std::move(body)), else_body(std::move(else_body)) {}
 
     If(std::unique_ptr<Expression> cond, 
       std::unique_ptr<Block> body) :
@@ -197,6 +212,12 @@ class If : public Expression {
       std::cout << str << "if\n";
       cond.get()->print(str + "--");
       body.get()->print(str + "--");
+      //TODO: print elif's
+      if (else_body) {
+        std::cout << str << "else\n";
+        else_body.get()->print(str + "--");
+      }
+
     }
     virtual llvm::Value *codegen() override;
 
@@ -212,7 +233,7 @@ public:
     : Proto(std::move(Proto)), Body(std::move(Body)) {}
 
   void print(std::string str) {
-    std::cout << str << "FUN DEF\n";
+    std::cout << str << "fun def\n";
     Proto.get()->print(str + "--");
     Body.get()->print(str + "--");
   }

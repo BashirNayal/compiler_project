@@ -1,10 +1,10 @@
 #include "ast.h"
 
 
-extern token_st             global_token;
-extern Type_en                 global_type;
-extern std::map<char, int>  BinopPrecedence;
-
+extern token_st                   global_token;
+extern Type_en                    global_type;
+extern std::map<char, int>        BinopPrecedence;
+extern std::map<int, std::string> token_to_str_map;
 
 /// GetTokPrecedence - Get the precedence of the pending binary operator token.
 static int GetTokPrecedence() {
@@ -304,9 +304,6 @@ std::unique_ptr<Expression> parse_expression() {
       std::unique_ptr<Expression> rhs = parse_expression();
       rhs.get()->print("test");
       return std::make_unique<Operator>(std::move(expr), '>', std::move(rhs));
-      
-      
-    
   }
 
 }
@@ -429,8 +426,7 @@ std::unique_ptr<Block> parse_block() {
       return std::make_unique<Block>(std::move(expressions));
     }
   }
-
-
+  return nullptr;
 }
 
 
@@ -508,6 +504,22 @@ std::unique_ptr<Expression> parse_return() {
   return std::make_unique<Return>(std::move(parse_expression()));
 }
 
+
+std::unique_ptr<Expression> parse_elif() {
+}
+
+std::unique_ptr<Block> parse_else() {
+  if (global_token.type != LBRACE_t) {
+    log("ERROR: expected '{' after else");
+    return nullptr;
+  }
+  getNextToken(); // eat '{'
+  std::unique_ptr<Block> else_body = parse_block();
+  log("parsed else body");
+  return else_body;
+}
+
+
 std::unique_ptr<Expression> parse_if() {
   log("parsing if");
   getNextToken(); // eat 'if'
@@ -516,16 +528,35 @@ std::unique_ptr<Expression> parse_if() {
     return nullptr;
   }
   getNextToken(); // eat '('
-  std::unique_ptr<Expression> cond = parse_expression();
+  std::unique_ptr<Expression> if_cond = parse_expression();
   log("parsed if cond");
+  print_token(global_token);
+
   if (global_token.type != LBRACE_t) {
     log("ERROR: expected '{' after if statement");
     return nullptr;
   }
   getNextToken(); // eat '{'
-  std::unique_ptr<Block> body = parse_block();
-  // cond.get()->print("ii");
+  std::unique_ptr<Block> if_body = parse_block();
   log("parsed if body");
-  // body.get()->print("aa");
-  return std::make_unique<If>(std::move(cond), std::move(body));
+  if (global_token.type != ELSE_t) {
+    return std::make_unique<If>(std::move(if_cond), std::move(if_body));
+  }
+  log("found else");
+  getNextToken(); // eat 'else'
+  if (global_token.type == IF_t){ // else if branch
+    parse_elif();
+  }
+  else { // else branch
+    if (global_token.type != LBRACE_t) {
+      log("ERROR: expected '{' at the start of else block");
+      return nullptr;
+    }
+      std::unique_ptr<Block> else_body = parse_else();
+      log("parsed if-else");
+      return std::make_unique<If>(
+        std::move(if_cond), 
+        std::move(if_body), 
+        std::move(else_body));
+  }
 }

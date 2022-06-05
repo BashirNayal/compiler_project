@@ -37,6 +37,13 @@ void get_ir(std::unique_ptr<Expression> expr = nullptr) {
       // module->print(llvm::errs(), nullptr);
     }
 }
+llvm::Value *Operator::codegen() {
+  log("codegen operator");
+  llvm::Value *add_inst = llvm::BinaryOperator::CreateAdd(lhs.get()->codegen(), rhs.get()->codegen(), "temp");
+  builder.get()->Insert(add_inst);
+  log(*add_inst);
+  return add_inst;
+}
 
 llvm::Value *Assignment::codegen() {
   printf("generating code for Assignment\n");
@@ -127,6 +134,41 @@ llvm::Value *Block::codegen() {
 }
 llvm::Value *If::codegen() {
   log("codegen if");
+  llvm::Value *if_cond_ir = cond.get()->codegen();
+  llvm::BasicBlock *current_block = builder.get()->GetInsertBlock();
+  llvm::StringRef prefix = current_block->getName();
+  llvm::Function *current_function = builder.get()->GetInsertBlock()->getParent();
+  llvm::BasicBlock *if_start_block = llvm::BasicBlock::Create(*context, prefix + ".if", current_function);
+  llvm::BasicBlock *else_start_block = nullptr;
+
+  if (else_body) {
+    else_start_block = llvm::BasicBlock::Create(*context, prefix + ".else", current_function);
+  }
+  llvm::BasicBlock *if_end_block = llvm::BasicBlock::Create(*context, prefix + ".endif", current_function);
+
+  if (else_start_block) {
+    builder.get()->CreateCondBr(if_cond_ir, if_start_block, else_start_block);
+  }
+  else {
+    builder.get()->CreateCondBr(if_cond_ir, if_start_block, if_end_block);
+  }
+
+  //populate the if body
+  builder.get()->SetInsertPoint(if_start_block);
+  body.get()->codegen(); 
+  builder.get()->CreateBr(if_end_block);
+
+  if (else_start_block) {
+      builder.get()->SetInsertPoint(else_start_block);
+      else_body.get()->codegen(); 
+      builder.get()->CreateBr(if_end_block);
+  }
+
+  builder.get()->SetInsertPoint(if_end_block);
+
+  
+ 
+
 }
 llvm::Value * Elif::codegen() {
   log("codegen elif");
