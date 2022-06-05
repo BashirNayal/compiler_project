@@ -5,6 +5,8 @@
 
 
 
+
+
 std::map<char, int> BinopPrecedence;
 std::map<int, std::string> token_to_str_map;
 
@@ -69,7 +71,7 @@ int main() {
     init_module();
     printf("codegen\n");
     expression.get()->codegen();
-
+    get_object_file();
 
   return 0;
 }

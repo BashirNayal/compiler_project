@@ -4,13 +4,76 @@
 #include "llvm/IR/PrintPasses.h"
 
 
+#include "llvm/MC/TargetRegistry.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Host.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetOptions.h"
 
+
+#include "llvm/IR/LegacyPassManager.h"
 
 static std::unique_ptr<llvm::LLVMContext> context;
 static std::unique_ptr<llvm::IRBuilder<>> builder;
 static std::unique_ptr<llvm::Module> module;
 
 std::map<std::string, llvm::Value *> named_values;
+
+
+void get_object_file() {
+  auto target_triple = llvm::sys::getDefaultTargetTriple();
+
+
+  llvm::InitializeAllTargetInfos();
+  llvm::InitializeAllTargets();
+  llvm::InitializeAllTargetMCs();
+  llvm::InitializeAllAsmParsers();
+  llvm::InitializeAllAsmPrinters();
+
+  std::string err;
+  auto target = llvm::TargetRegistry::lookupTarget(target_triple, err);
+  
+  if (!target) {
+    log(err);
+    return;
+  } 
+  auto CPU = "generic";
+  auto features = "";
+  
+  llvm::TargetOptions opt;
+  auto RM = llvm::Optional<llvm::Reloc::Model>();
+  auto TargetMachine = target->createTargetMachine(target_triple, CPU, features, opt, RM);
+
+  module->setDataLayout(TargetMachine->createDataLayout());
+  module->setTargetTriple(target_triple);
+
+  auto Filename = "output.o";
+  std::error_code EC;
+  llvm::raw_fd_ostream dest(Filename, EC, llvm::sys::fs::OF_None);
+  
+  if (EC) {
+    log("Could not open file: " << EC.message());
+    return ;
+  }
+  // llvm::PassBuilder<> pass;
+  llvm::legacy::PassManager pass;
+  auto FileType = llvm::CGFT_ObjectFile;
+  
+  if (TargetMachine->addPassesToEmitFile(pass, dest, nullptr, FileType)) {
+    log("TheTargetMachine can't emit a file of this type");
+    return ;
+  }
+
+  pass.run(*module);
+  dest.flush();
+
+  llvm::outs() << "Wrote " << Filename << "\n";
+
+
+}
+
 
 void init_module() {
   // Open a new context and module.
@@ -19,8 +82,18 @@ void init_module() {
 
   // Create a new builder for the module.
   builder = std::make_unique<llvm::IRBuilder<>>(*context);
+
+
+  std::vector<llvm::Type *> Ints(1,llvm::Type::getInt8PtrTy(*context));
+
+  llvm::FunctionType *PT =
+      llvm::FunctionType::get(llvm::Type::getInt32Ty(*context), Ints, true);
+
+  llvm::Function *F =
+      llvm::Function::Create(PT, llvm::Function::ExternalLinkage, "printf", module.get());
+
+
   log("initialized");
-  log(*module);
 }
 
 llvm::Value *log_errorV(const char *str) {
@@ -88,16 +161,13 @@ llvm::Value *Const::codegen() {
 
 llvm::Function *PrototypeAST::codegen() {
     // Make the function type:  double(double,double) etc.
-  std::vector<llvm::Type *> Doubles(parameters.size(), llvm::Type::getDoubleTy(*context));
   std::vector<llvm::Type *> Ints(parameters.size(),llvm::Type::getInt32Ty(*context));
-  llvm::FunctionType *FT =
-      llvm::FunctionType::get(llvm::Type::getDoubleTy(*context), Doubles, false);
 
   llvm::FunctionType *IT =
       llvm::FunctionType::get(llvm::Type::getInt32Ty(*context), Ints, false);
 
   llvm::Function *F =
-      llvm::Function::Create(FT, llvm::Function::ExternalLinkage, fun_name, module.get());
+      llvm::Function::Create(IT, llvm::Function::ExternalLinkage, fun_name, module.get());
 
   // Set names for all arguments.
   unsigned Idx = 0;
@@ -140,21 +210,15 @@ llvm::Value *If::codegen() {
 
   //populate the if body
   builder.get()->SetInsertPoint(if_start_block);
-  
+
   body.get()->codegen(); 
   builder.get()->CreateBr(if_end_block);
-
   if (else_start_block) {
       builder.get()->SetInsertPoint(else_start_block);
       else_body.get()->codegen(); 
       builder.get()->CreateBr(if_end_block);
   }
-
   builder.get()->SetInsertPoint(if_end_block);
-
-
- 
-
 }
 llvm::Value * Elif::codegen() {
   log("codegen elif");
