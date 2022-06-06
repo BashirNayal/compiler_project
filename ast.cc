@@ -4,7 +4,6 @@
 extern token_st                   global_token;
 extern Type_en                    global_type;
 extern std::map<char, int>        BinopPrecedence;
-extern std::map<int, std::string> token_to_str_map;
 
 /// GetTokPrecedence - Get the precedence of the pending binary operator token.
 static int GetTokPrecedence() {
@@ -12,14 +11,6 @@ static int GetTokPrecedence() {
   int TokPrec = BinopPrecedence[global_token.type];
   if (TokPrec <= 0) return -1;
   return TokPrec;
-}
-
-static std::unique_ptr<Expression> ParseExpression() {
-  auto LHS = ParsePrimary();
-  if (!LHS)
-    return nullptr;
-
-  return ParseBinOpRHS(0, std::move(LHS));
 }
 
 
@@ -34,209 +25,11 @@ std::unique_ptr<Expression>  parse_const(token_st current_token) {
 }
 
 
-static std::unique_ptr<Expression> parse_paren_expr() {
-  getNextToken(); // eat (
-  auto V = ParseExpression();
-  if (!V)
-    return nullptr;
 
-  if (global_token.type != RPAREN_t) {
-    fprintf(stderr, "ERROR: expected ')'");
-    return nullptr;
-  }
-  getNextToken(); // eat ).
-  return V;
-}
-
-
-std::unique_ptr<Expression> parse_identifier_exp() {
-  //TODO: Check where var name is stored
-  // std::string id_name = global_token.data.id;
-  // std::string id_name = global_token.data.name;
-
-  // getNextToken();  // eat identifier name.
-
-
-
-  // if (global_token.type != LPAREN_t) {// Simple variable ref. 
-  // //TODO: Add the variable type
-  //   printf("parsed a variable name\n");
-  //   // return std::make_unique<Variable>(id_name);
-  // }
-
-  // getNextToken();  // eat (
-  // // Call.
-  // if (global_token.type != TYPE_t) {
-  //   printf("parsing a call\n");
-  //   std::vector<std::unique_ptr<Expression>> args;
-  //   if (global_token.type != RPAREN_t) {
-  //     while (1) {
-  //       if (auto Arg = ParseExpression())
-  //         args.push_back(std::move(Arg));
-  //       else
-  //         return nullptr;
-
-  //       if (global_token.type == RPAREN_t)
-  //         break;
-
-  //       if (global_token.type != COMMA_t) {
-  //         fprintf(stderr, "Expected ')' or ',' in argument list");
-  //         return nullptr;
-  //       }
-  //       getNextToken();
-  //     }
-  //   }
-
-  //   // Eat the ')'.
-  //   getNextToken();
-
-  //   return std::make_unique<CallExpression>(id_name, std::move(args));
-  // }
-  // else {
-
-  // }
-
-}
-
-
-
-static std::unique_ptr<Expression> ParsePrimary() {
-
-  switch (global_token.type) {
-  default:
-    fprintf(stderr, "unknown token when expecting an expression\n");
-    return nullptr;  
-  case ID_t:
-    return parse_identifier_exp();
-  case INTCONST_t:
-    return parse_const(global_token);
-  case LPAREN_t:
-    return parse_paren_expr();
-  }
-}
-
-
-static std::unique_ptr<Expression> ParseBinOpRHS(int ExprPrec,
-                                              std::unique_ptr<Expression> LHS) {
-  // If this is a binop, find its precedence.
-  while (true) {
-    int TokPrec = GetTokPrecedence();
-
-    // If this is a binop that binds at least as tightly as the current binop,
-    // consume it, otherwise we are done.
-    if (TokPrec < ExprPrec)
-      return LHS;
-
-    // Okay, we know this is a binop.
-    //TODO: Fix the hardcoding here
-    int BinOp = '+';
-
-    getNextToken(); // eat binop
-
-    // Parse the primary expression after the binary operator.
-    auto RHS = ParsePrimary();
-    if (!RHS)
-      return nullptr;
-
-    // If BinOp binds less tightly with RHS than the operator after RHS, let
-    // the pending operator take RHS as its LHS.
-    int NextPrec = GetTokPrecedence();
-    if (TokPrec < NextPrec) {
-      RHS = ParseBinOpRHS(TokPrec + 1, std::move(RHS));
-      if (!RHS)
-        return nullptr;
-    }
-
-    // Merge LHS/RHS.
-    LHS =
-        std::make_unique<Operator>(std::move(LHS), (char)BinOp, std::move(RHS));
-    // LHS.get()->print();
-  }
-}
-
-// void handle_top_level_exp() {
-//   // Evaluate a top-level expression into an anonymous function.
-//   if (ParseTopLevelExpr()) {
-//     fprintf(stderr, "Parsed a top-level expr\n");
-//   } else {
-//     // Skip token for error recovery.
-//     getNextToken();
-//   }
-// }
-
-static std::unique_ptr<PrototypeAST> ParsePrototype() {
-
-  // //TODO: Store type here and eat it
-  // if (global_token.type != ID_t) {
-  //   fprintf(stderr, "Expected function name in prototype\n");
-  //   return nullptr;
-  // }
-
-  // print_token(global_token);
-
-  // std::string FnName = global_token.data.name;
-  // getNextToken();
-
-  // if (global_token.type != '(')
-  //   fprintf(stderr, "Expected '(' in prototype");
-  // print_token(global_token);
-
-  // std::vector<std::string> ArgNames;
-  // token_st temp_token = getNextToken();
-  // while (temp_token.type == ID_t) {
-  //   ArgNames.push_back(temp_token.data.name);
-  //   temp_token = getNextToken();
-  // }
-  // if (global_token.type != ')') {
-  //   fprintf(stderr, "Expected ')' in prototype");
-  //   return nullptr;
-  // }
-
-  // // success.
-  // getNextToken(); // eat ')'.
-
-  // return std::make_unique<PrototypeAST>(FnName, std::move(ArgNames));
-}
-
-
-static std::unique_ptr<PrototypeAST> ParseExtern() {
-  getNextToken();  // eat extern.
-  return ParsePrototype();
-}
 
 void handle_extern() {
-  if (ParseExtern()) {
-    fprintf(stderr, "Parsed an extern\n");
-  } else {
-    // Skip token for error recovery.
-    getNextToken();
-  }
+  log("parsing extern");
 }
-
-
-// static std::unique_ptr<FunctionAST> ParseDefinition() {
-//   getNextToken();  // eat def.
-//   auto Proto = ParsePrototype();
-//   if (!Proto) return nullptr;
-
-//   if (auto E = ParseExpression())
-//     // return std::make_unique<FunctionAST>(std::move(Proto), std::move(E));
-//   return nullptr;
-// }
-
-// static std::unique_ptr<FunctionAST> ParseTopLevelExpr() {
-//   if (auto E = ParseExpression()) {
-//     // Make an anonymous proto.
-//     // auto Proto = std::make_unique<PrototypeAST>("", std::vector<std::string>());
-//     // return std::make_unique<FunctionAST>(std::move(Proto), std::move(E));
-//   }
-//   return nullptr;
-// }
-
-// std::unique_ptr<Expression> parse_paren_expression() {
-
-// }
-
 
 
 std::unique_ptr<Expression> parse_expression() {
@@ -252,11 +45,27 @@ std::unique_ptr<Expression> parse_expression() {
     log("found const " << global_token.data.int_value);
       expr = std::make_unique<Const>(global_token.data.int_value);
       getNextToken(); // eat const
-      if (global_token.type == SEMICOL_t || global_token.type == RPAREN_t) {
-        getNextToken(); // eat ';'
-        // print_token(global_token);
+      if (global_token.type == SEMICOL_t || 
+          global_token.type == RPAREN_t || 
+          global_token.type == COMMA_t) {
+        getNextToken(); // eat ';' or ')' or ','
         return expr;
       }
+      break;
+    case STRING_t:
+      log("found str");
+      expr = std::make_unique<String>(global_token.data.str);
+      getNextToken(); // eat 'str'
+
+      if (global_token.type == SEMICOL_t || 
+          global_token.type == RPAREN_t || 
+          global_token.type == COMMA_t) {
+        getNextToken(); // eat ';' or ')' or ','
+        return expr;
+      }
+
+
+      return expr;
       break;
     case ID_t:
       printf("found id\n");
@@ -264,8 +73,17 @@ std::unique_ptr<Expression> parse_expression() {
       id_name = global_token.data.name;
       getNextToken(); // eat the id name
       if (global_token.type == LPAREN_t) {
-        printf("found function call inside of block\n");
+        printf("found function call\n");
+        getNextToken(); // eat '('
+        std::vector<std::unique_ptr<Expression>> args;
+        while (global_token.type != SEMICOL_t) {
+          args.push_back(std::move(parse_expression()));
+          log("parsed one arg");
+        }
+        log("parsed args");
+        return std::make_unique<CallExpression>(id_name, std::move(args));
         //TODO: parse arguments
+        exit(0);
       }
       else if (global_token.type == LBRACE_t) {
         printf("found array addressing\n");
@@ -286,8 +104,10 @@ std::unique_ptr<Expression> parse_expression() {
         log("found var use");
         expr = std::make_unique<VarUse>(VarUse(id_name));
         //TODO 
-        if (global_token.type == SEMICOL_t || global_token.type == RPAREN_t) {
-          getNextToken(); // eat ';' or ')'
+        if (global_token.type == SEMICOL_t || 
+            global_token.type == RPAREN_t || 
+            global_token.type == COMMA_t) {
+          getNextToken(); // eat ';' or ')' or ','
           return expr;
         }
       }
@@ -302,28 +122,32 @@ std::unique_ptr<Expression> parse_expression() {
         
   }
   switch (global_token.type) {
-    case PLUS_t:
-      print_token(global_token);
-      getNextToken(); // eat operator
-      return std::make_unique<Operator>(std::move(expr), '+', std::move(parse_expression()));
-    case MUL_t:
-      getNextToken();
-      return std::make_unique<Operator>(std::move(expr), '*', std::move(parse_expression()));
-    case DIV_t:
-      getNextToken();
-      return std::make_unique<Operator>(std::move(expr), '/', std::move(parse_expression()));
-    case MIN_t:
-      getNextToken();
-      return std::make_unique<Operator>(std::move(expr), '-', std::move(parse_expression()));
     case LPAREN_t:
       getNextToken(); // eat '('
-
+      break;
+    case NOT_t:
+      log("implement me!");
+      exit(0);
+      break;
+    case PLUS_t:
+    case MUL_t:
+    case DIV_t:
+    case MIN_t:
     case GT_t:
-      getNextToken();
+    case LT_t:
+    case EQ_t:
+    case NE_t:
+    case GE_t:
+    case LE_t:
+    case OR_t:
+    case AND_t:
+    case XOR_t:
+    case MOD_t:
       print_token(global_token);
-      std::unique_ptr<Expression> rhs = parse_expression();
-      rhs.get()->print("test");
-      return std::make_unique<Operator>(std::move(expr), '>', std::move(rhs));
+      Token op_token = global_token.type;
+      getNextToken(); // eat operator
+      return std::make_unique<Operator>(std::move(expr), op_token, std::move(parse_expression()));
+      break;
   }
 
 }
@@ -449,7 +273,6 @@ std::unique_ptr<Block> parse_block() {
   return nullptr;
 }
 
-
 std::unique_ptr<Expression> parse_id_or_fun() {
   Type_en id_or_fun_type = global_token.data.data_type;
 
@@ -508,11 +331,6 @@ std::unique_ptr<Expression> parse_id_or_fun() {
 
   }
 }
-
-
-// llvm::Value *FunctionAST::codegen() {
-//   return nullptr;
-// }
 
 
 std::unique_ptr<Expression> parse_return() {

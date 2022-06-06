@@ -1,4 +1,3 @@
-#pragma once
 #ifndef AST_H
 #define AST_H
 
@@ -112,34 +111,50 @@ public:
 
 
 class Operator : public Expression {
-  char Op;
+  Token op;
   std::unique_ptr<Expression> lhs, rhs;
 
 public:
-  Operator(std::unique_ptr<Expression> lhs, char op,
+  Operator(std::unique_ptr<Expression> lhs, Token op,
                 std::unique_ptr<Expression> rhs)
-    : Op(op), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
+    : op(op), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
   void print(std::string str) {
     std::cout << str << "operator\n";
     lhs.get()->print(str + "--");
-    std::cout << str << Op << std::endl;
+    std::cout << str << op << std::endl;
     if (!rhs) log("wtf");
     rhs.get()->print(str + "--");
   }
   virtual llvm::Value *codegen() override;
 
 };
+class String : public Expression {
+  std::string str;
+public:
+  String(std::string str) : str(str) {}
+  void print(std::string str) {
+    std::cout << str << "string\n";
+    std::cout << str << "--" << str << std::endl;
+  }
+  virtual llvm::Value *codegen() override;
+};
 
 class CallExpression : public Expression {
-  std::string Callee;
+  std::string callee;
   std::vector<std::unique_ptr<Expression>> args;
 
 public:
-  CallExpression(const std::string &Callee,
+  CallExpression(const std::string &callee,
               std::vector<std::unique_ptr<Expression>> args)
-    : Callee(Callee), args(std::move(args)) {}
-  virtual llvm::Value *codegen() {return nullptr;}
+    : callee(callee), args(std::move(args)) {}
+  void print(std::string str) {
+    std::cout << str << "fun call: " << callee << std::endl;
+    for (int i = 0; i < args.size(); i++) {
+      args.at(i)->print(str + "--");
+    }
+  }
+  virtual llvm::Value *codegen() override;
 };
 
 

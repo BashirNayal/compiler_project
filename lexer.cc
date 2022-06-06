@@ -19,6 +19,7 @@ token_st gettok(void) {
   // printf("current char: %c\n" , last_char);
   if (isalpha(last_char) || last_char == '_') {
     read_string = last_char;
+    
     while (isalnum((last_char = getchar())) || last_char == '_')
       read_string += last_char;
 
@@ -74,6 +75,19 @@ token_st gettok(void) {
     token.type = INTCONST_t;
     token.data.int_value = strtod(NumStr.c_str(), nullptr);
      
+    return token;
+  }
+  if (last_char == '"') {
+    last_char = getchar();
+    std::string str;
+    while (last_char != '"') {
+      str += last_char;
+      last_char = getchar();
+    }
+    token.type = STRING_t;
+    token.data.str = (char*)malloc(str.length());
+    strcpy(token.data.str, str.c_str());
+
     return token;
   }
 
@@ -212,6 +226,9 @@ void print_token(token_st token = global_token) {
     case INTCONST_t:
       printf("(INCONST, '%d')\n" , token.data.int_value);
       break;
+    case STRING_t:
+      printf("(STIRNG, '%s')\n" , token.data.str);
+      break;
     case SEMICOL_t:
       printf("(SEMICOLON, ';')\n");
       break;
@@ -270,5 +287,6 @@ void print_token(token_st token = global_token) {
 }
 
 token_st getNextToken() {
+  print_token(global_token);
   return global_token = gettok();
 }

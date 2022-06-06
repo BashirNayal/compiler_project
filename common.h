@@ -1,6 +1,5 @@
-#pragma once
-#ifndef common_H
-#define common_H
+#ifndef COMMON_H
+#define COMMON_H
 
 #include <string>
 #include <memory>

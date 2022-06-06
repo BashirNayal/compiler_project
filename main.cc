@@ -8,7 +8,6 @@
 
 
 std::map<char, int> BinopPrecedence;
-std::map<int, std::string> token_to_str_map;
 
 extern token_st     global_token;
 extern Type_en      global_type;
@@ -20,13 +19,6 @@ int main() {
   BinopPrecedence[PLUS_t] = 20;
   BinopPrecedence[MIN_t] = 20;
   BinopPrecedence[MUL_t] = 40;  // highest.
-  token_to_str_map[PLUS_t]  = "+";
-  token_to_str_map[MIN_t]   = "-";
-  token_to_str_map[MUL_t]   = "*";
-  token_to_str_map[DIV_t]   = "/";
-  token_to_str_map[GT_t]    = ">";
-  token_to_str_map[LT_t]    = "<";
-  token_to_str_map[EQ_t]    = "==";
   
   // llvm::LLVMContext context;
   // llvm::LLVMContext context;
@@ -38,14 +30,13 @@ int main() {
   global_token.type = UNKNOWN_t;
   global_token = gettok();
   std::unique_ptr<Expression> expression;
-  // get_ir(nullptr);
   while(true) {
     switch (global_token.type) {
       case EOF_t:
         printf("reached EOF token\n");
         goto codegen;
       case ID_t:
-        parse_identifier_exp();
+        // parse_identifier_exp();
         break;
       case TYPE_t:
         printf("found a type\n");

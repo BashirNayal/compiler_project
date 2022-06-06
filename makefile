@@ -10,8 +10,7 @@ LLVM_HDRS= `llvm-config-14 --cxxflags`
 CC= g++
 LLVM_FLAGS=`llvm-config-14 --cxxflags --ldflags --system-libs --libs core`#mcjit native`
 
-# -Wl,--unresolved-symbols=ignore-in-object-files
-#-DLLVM_DISABLE_ABI_BREAKING_CHECKS_ENFORCING=1
+
 
 all: $(OBJS)
 	$(CC) -o $(OUT) $(OBJS) $(LLVM_FLAGS)

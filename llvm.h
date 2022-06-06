@@ -1,4 +1,3 @@
-#pragma once
 #ifndef LLVM_H
 #define LLVM_H
 

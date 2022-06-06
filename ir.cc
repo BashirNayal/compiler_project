@@ -82,7 +82,7 @@ void get_object_file() {
   dest.flush();
 
   // llvm::outs() << "Wrote " << Filename << "\n";
-  log("wrote object file");
+  log("emitted " << Filename);
 
 
 }
@@ -106,29 +106,76 @@ void init_module() {
       llvm::Function::Create(PT, llvm::Function::ExternalLinkage, "printf", module.get());
 
 
-  log("initialized");
+  log("module initialized");
 }
 
-llvm::Value *log_errorV(const char *str) {
-  std::cout << "ERROR: " << str << std::endl;
-  return nullptr;
+llvm::Value *String::codegen() {
+  log("codegen string");
 }
 
-void get_ir(std::unique_ptr<Expression> expr = nullptr) {
-  printf("get_ir\n");
-    if (expr) expr.get()->codegen();
-    else {
-      printf("generating IR\n");
-      // llvm::ConstantFP *fp =  llvm::ConstantFP::get(context, llvm::APFloat(5.4));
-      // module->print(llvm::errs(), nullptr);
-    }
-}
 llvm::Value *Operator::codegen() {
   log("codegen operator");
-  llvm::Value *add_inst = llvm::BinaryOperator::CreateAdd(lhs.get()->codegen(), rhs.get()->codegen(), "temp");
-  builder.get()->Insert(add_inst);
-  log(*add_inst);
-  return add_inst;
+  llvm::Value *lhs_ir = lhs.get()->codegen();
+  llvm::Value *rhs_ir = rhs.get()->codegen();
+  llvm::IntegerType *int_type = llvm::Type::getInt32Ty(*context);
+  llvm::BasicBlock *current_bb = builder->GetInsertBlock();
+  llvm::Value *inst;
+  switch (op) {
+    case PLUS_t:
+      inst = llvm::BinaryOperator::CreateAdd(lhs_ir, rhs_ir, "");
+      break;
+    case MUL_t:
+      inst = llvm::BinaryOperator::CreateMul(lhs_ir, rhs_ir, "");
+      break;
+    case DIV_t: 
+      inst = llvm::BinaryOperator::CreateSDiv(lhs_ir, rhs_ir, "");
+      break;
+    case MIN_t: 
+      inst = llvm::BinaryOperator::CreateSub(lhs_ir, rhs_ir, "");
+      break;
+    case AND_t: 
+      inst = llvm::BinaryOperator::CreateAnd(lhs_ir, rhs_ir, "");
+      break;
+    case XOR_t: 
+      inst = llvm::BinaryOperator::CreateXor(lhs_ir, rhs_ir, "");
+      break;
+    case MOD_t: 
+      inst = llvm::BinaryOperator::CreateSRem(lhs_ir, rhs_ir, "");
+      break;
+    case GT_t:
+      return llvm::CmpInst::Create(llvm::Instruction::OtherOps::ICmp, 
+        llvm::CmpInst::Predicate::ICMP_SGT,
+        lhs_ir, rhs_ir, "", current_bb);
+    case LT_t:
+      return llvm::CmpInst::Create(llvm::Instruction::OtherOps::ICmp, 
+        llvm::CmpInst::Predicate::ICMP_SLT,
+        lhs_ir, rhs_ir, "", current_bb);
+    case EQ_t:
+      return llvm::CmpInst::Create(llvm::Instruction::OtherOps::ICmp, 
+        llvm::CmpInst::Predicate::ICMP_EQ,
+        lhs_ir, rhs_ir, "", current_bb);
+    case NE_t:
+      return llvm::CmpInst::Create(llvm::Instruction::OtherOps::ICmp, 
+        llvm::CmpInst::Predicate::ICMP_NE,
+        lhs_ir, rhs_ir, "", current_bb);
+    case GE_t:
+      return llvm::CmpInst::Create(llvm::Instruction::OtherOps::ICmp, 
+        llvm::CmpInst::Predicate::ICMP_SGE,
+        lhs_ir, rhs_ir, "", current_bb);
+    case LE_t:
+      return llvm::CmpInst::Create(llvm::Instruction::OtherOps::ICmp, 
+        llvm::CmpInst::Predicate::ICMP_SLE,
+        lhs_ir, rhs_ir, "", current_bb);
+    case OR_t: {
+      llvm::Value *or_inst = llvm::BinaryOperator::CreateOr(lhs_ir, rhs_ir, "");
+      builder.get()->Insert(or_inst);
+      return or_inst;
+    }
+    default:
+      break;
+  }
+  builder.get()->Insert(inst);
+  return inst;
 }
 
 llvm::Value *Assignment::codegen() {
@@ -138,22 +185,16 @@ llvm::Value *Assignment::codegen() {
     named_values[var_name] = AI;
   }
   builder->CreateStore(value->codegen(), named_values[var_name]);
-  // builder->CreateStore(
+  return nullptr;
 }
 
 llvm:: Value *VarUse::codegen() {
   log("codegen varuse");
   return named_values[var_name];
-  value->print("x");
-  llvm::Value *rhs = value->codegen();
-  log(*rhs);
-  // return builder->CreateStore(value->codegen(), named_values[var_name]);
-
 }
 
 llvm::Value *Return::codegen() {
   if (value) {
-    llvm::IntegerType *int_type = llvm::Type::getInt32Ty(*context);
     llvm::Value *ret_val = value.get()->codegen();
     log((*ret_val));
     //TODO: this assumes int
@@ -163,6 +204,7 @@ llvm::Value *Return::codegen() {
 
     builder.get()->CreateRetVoid();
   }
+  return nullptr;
 
 }
 llvm::Value *Const::codegen() {
@@ -188,11 +230,7 @@ llvm::Function *PrototypeAST::codegen() {
     Arg.setName(parameters.at(Idx++).get()->get_name());
 
   return F;
-
-
-  return nullptr;
 }
-
 
 llvm::Value *Block::codegen() {
   log("codegen block");
@@ -200,6 +238,7 @@ llvm::Value *Block::codegen() {
     Expression *exp = expressions.at(i).get();
     exp->codegen();
   }
+  return nullptr;
 }
 llvm::Value *If::codegen() {
   log("codegen if");
@@ -232,11 +271,21 @@ llvm::Value *If::codegen() {
       builder.get()->CreateBr(if_end_block);
   }
   builder.get()->SetInsertPoint(if_end_block);
+  return nullptr;
 }
 llvm::Value * Elif::codegen() {
   log("codegen elif");
+  return nullptr;
 }
 
+llvm::Value *CallExpression::codegen() {
+  log("codegen call");
+  std::vector<llvm::Value*> args_ir;
+  for (int i = 0; i < args.size(); i++) {
+    args_ir.push_back(args.at(0)->codegen());
+  }
+  return builder->CreateCall(module->getFunction(callee), args_ir, "");
+}
 
 llvm::Function *FunctionAST::codegen() {
     log("codegen fun");
@@ -258,13 +307,15 @@ llvm::Function *FunctionAST::codegen() {
   }
   Body->codegen();
   if (verifyFunction(*fun)) {
-    log(*module);
+    // log(*module);
     return fun;
   }
   else {
+    // log(*module);
     log("ERROR: failed to generate function IR for " <<  Proto->get_name());
     fun->eraseFromParent();
     return nullptr;
   }
+  return nullptr;
     
 }
