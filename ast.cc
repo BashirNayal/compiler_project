@@ -42,7 +42,7 @@ std::unique_ptr<Expression> parse_expression() {
       expr = parse_return();
       break;
     case INTCONST_t:
-    log("found const " << global_token.data.int_value);
+      log("found const " << global_token.data.int_value);
       expr = std::make_unique<Const>(global_token.data.int_value);
       getNextToken(); // eat const
       if (global_token.type == SEMICOL_t || 
@@ -53,19 +53,19 @@ std::unique_ptr<Expression> parse_expression() {
       }
       break;
     case STRING_t:
-      log("found str");
+      log("found str: " << global_token.data.str);
       expr = std::make_unique<String>(global_token.data.str);
       getNextToken(); // eat 'str'
+        print_token(global_token);
 
       if (global_token.type == SEMICOL_t || 
           global_token.type == RPAREN_t || 
           global_token.type == COMMA_t) {
         getNextToken(); // eat ';' or ')' or ','
+        print_token(global_token);
         return expr;
       }
 
-
-      return expr;
       break;
     case ID_t:
       printf("found id\n");
@@ -240,6 +240,24 @@ std::unique_ptr<Expression> parse_typed_expression() {
   
 }
 
+std::unique_ptr<While> parse_while() {
+  log("parsing while");
+  getNextToken(); // eat 'while'
+  if (global_token.type != LPAREN_t) {
+    log("ERROR: expected '(' after 'while'");
+    return nullptr;
+  }
+  getNextToken(); // eat '('
+  std::unique_ptr<Expression> cond = parse_expression();
+  if (global_token.type != LBRACE_t) {
+    log("ERROR: expected '{' after while condition");
+    return nullptr;
+  }
+  getNextToken(); // eat '{'
+  std::unique_ptr<Block> body = parse_block();
+  return std::make_unique<While>(std::move(cond), std::move(body));
+}
+
 std::unique_ptr<Block> parse_block() {
   std::vector<std::unique_ptr<Expression>> expressions;
   while (global_token.type != RBRACE_t) {
@@ -257,6 +275,9 @@ std::unique_ptr<Block> parse_block() {
         break;
       case IF_t:
         expressions.push_back(std::move(parse_if()));
+        break;
+      case WHILE_t:
+        expressions.push_back(std::move(parse_while()));
         break;
 
       default:

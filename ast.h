@@ -123,19 +123,18 @@ public:
     std::cout << str << "operator\n";
     lhs.get()->print(str + "--");
     std::cout << str << op << std::endl;
-    if (!rhs) log("wtf");
     rhs.get()->print(str + "--");
   }
   virtual llvm::Value *codegen() override;
 
 };
 class String : public Expression {
-  std::string str;
+  std::string string;
 public:
-  String(std::string str) : str(str) {}
+  String(std::string str) : string(string) {}
   void print(std::string str) {
     std::cout << str << "string\n";
-    std::cout << str << "--" << str << std::endl;
+    std::cout << str << "--" << string << std::endl;
   }
   virtual llvm::Value *codegen() override;
 };
@@ -243,6 +242,23 @@ class If : public Expression {
     virtual llvm::Value *codegen() override;
 
 };
+
+class While : public Expression {
+  std::unique_ptr<Expression> cond;
+  std::unique_ptr<Block> body;
+  public:
+    While(std::unique_ptr<Expression> cond, 
+      std::unique_ptr<Block> body) :
+      cond(std::move(cond)), body(std::move(body)) {}
+    void print(std::string str) {
+      std::cout << str << "while\n";
+      cond.get()->print(str + "--");
+      body.get()->print(str + "--");
+    }
+    virtual llvm::Value *codegen() override;
+
+};
+
 
 class FunctionAST : public Expression{ //TODO: This might be bad/ add a node class
   std::unique_ptr<PrototypeAST> Proto;

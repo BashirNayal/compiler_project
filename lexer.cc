@@ -84,6 +84,7 @@ token_st gettok(void) {
       str += last_char;
       last_char = getchar();
     }
+    last_char = getchar();
     token.type = STRING_t;
     token.data.str = (char*)malloc(str.length());
     strcpy(token.data.str, str.c_str());

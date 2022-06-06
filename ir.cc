@@ -113,6 +113,10 @@ llvm::Value *String::codegen() {
   log("codegen string");
 }
 
+llvm::Value *While::codegen() {
+  log("codegen while");
+}
+
 llvm::Value *Operator::codegen() {
   log("codegen operator");
   llvm::Value *lhs_ir = lhs.get()->codegen();
