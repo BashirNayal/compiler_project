@@ -12,7 +12,7 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 
-
+#include <fstream>
 #include "llvm/IR/LegacyPassManager.h"
 
 static std::unique_ptr<llvm::LLVMContext> context;
@@ -23,15 +23,25 @@ std::map<std::string, llvm::Value *> named_values;
 
 
 void get_object_file() {
+
+  log("creating object file");
   auto target_triple = llvm::sys::getDefaultTargetTriple();
-
-
+  std::ofstream myfile;
+  std::string ir_str;
+  myfile.open ("program.ll");
+  llvm::raw_string_ostream output(ir_str);
+  module->print(output, nullptr);
+  // log("program:");
+  // log(ir_str);
+  myfile << ir_str;
+  myfile.close();
+  return;
   llvm::InitializeAllTargetInfos();
   llvm::InitializeAllTargets();
   llvm::InitializeAllTargetMCs();
   llvm::InitializeAllAsmParsers();
   llvm::InitializeAllAsmPrinters();
-
+  log("initialized info and target");
   std::string err;
   auto target = llvm::TargetRegistry::lookupTarget(target_triple, err);
   
@@ -46,13 +56,14 @@ void get_object_file() {
   auto RM = llvm::Optional<llvm::Reloc::Model>();
   auto TargetMachine = target->createTargetMachine(target_triple, CPU, features, opt, RM);
 
+  log("created target machine");
   module->setDataLayout(TargetMachine->createDataLayout());
   module->setTargetTriple(target_triple);
 
   auto Filename = "output.o";
   std::error_code EC;
   llvm::raw_fd_ostream dest(Filename, EC, llvm::sys::fs::OF_None);
-  
+  log("opened file");
   if (EC) {
     log("Could not open file: " << EC.message());
     return ;
@@ -65,11 +76,13 @@ void get_object_file() {
     log("TheTargetMachine can't emit a file of this type");
     return ;
   }
-
-  pass.run(*module);
+  log("added pass");
+  // pass.run(*module);
+  log("ran pass");
   dest.flush();
 
-  llvm::outs() << "Wrote " << Filename << "\n";
+  // llvm::outs() << "Wrote " << Filename << "\n";
+  log("wrote object file");
 
 
 }
