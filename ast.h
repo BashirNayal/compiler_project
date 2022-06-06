@@ -131,10 +131,11 @@ public:
 class String : public Expression {
   std::string string;
 public:
-  String(std::string str) : string(string) {}
+  String(const std::string &str) : string(string) {}
   void print(std::string str) {
     std::cout << str << "string\n";
     std::cout << str << "--" << string << std::endl;
+    printf("testing,... %s\n" , str);
   }
   virtual llvm::Value *codegen() override;
 };

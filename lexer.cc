@@ -86,8 +86,10 @@ token_st gettok(void) {
     }
     last_char = getchar();
     token.type = STRING_t;
-    token.data.str = (char*)malloc(str.length());
+    token.data.str = (char*)malloc(str.length() + 1);
+    printf("string>> %s\n", str.c_str());
     strcpy(token.data.str, str.c_str());
+    token.data.str[str.length()] = '\0';
 
     return token;
   }

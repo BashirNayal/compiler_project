@@ -52,9 +52,12 @@ std::unique_ptr<Expression> parse_expression() {
         return expr;
       }
       break;
-    case STRING_t:
+    case STRING_t: {
       log("found str: " << global_token.data.str);
-      expr = std::make_unique<String>(global_token.data.str);
+      char *temp = (char*)malloc(100);
+      strncpy(temp, global_token.data.str, 10);
+      std::string myString(global_token.data.str, std::strlen(global_token.data.str));
+      expr = std::make_unique<String>(myString);
       getNextToken(); // eat 'str'
         print_token(global_token);
 
@@ -67,6 +70,7 @@ std::unique_ptr<Expression> parse_expression() {
       }
 
       break;
+    }
     case ID_t:
       printf("found id\n");
       //TODO: Handle function calls or indexing;
