@@ -113,9 +113,7 @@ llvm::Value *String::codegen() {
   log("codegen string");
 }
 
-llvm::Value *While::codegen() {
-  log("codegen while");
-}
+
 
 llvm::Value *Operator::codegen() {
   log("codegen operator");
@@ -280,6 +278,27 @@ llvm::Value *If::codegen() {
 llvm::Value * Elif::codegen() {
   log("codegen elif");
   return nullptr;
+}
+
+llvm::Value *While::codegen() {
+  log("codegen while");
+  llvm::BasicBlock *current_block = builder.get()->GetInsertBlock();
+  llvm::StringRef prefix = current_block->getName();
+  llvm::Function *current_function = builder.get()->GetInsertBlock()->getParent();
+  llvm::BasicBlock *while_cond_block = llvm::BasicBlock::Create(*context, prefix + ".while.cond", current_function);
+  llvm::BasicBlock *while_start_block = llvm::BasicBlock::Create(*context, prefix + ".while.start", current_function);
+  llvm::BasicBlock *while_end_block = llvm::BasicBlock::Create(*context, prefix + ".while.end", current_function);
+  
+  builder->CreateBr(while_cond_block);
+  builder->SetInsertPoint(while_cond_block);
+  llvm::Value *while_cond_ir = cond.get()->codegen();
+  builder.get()->CreateCondBr(while_cond_ir, while_start_block, while_end_block);
+  builder->SetInsertPoint(while_start_block);
+  body.get()->codegen();
+  builder->CreateBr(while_start_block);
+  builder->SetInsertPoint(while_end_block);
+
+
 }
 
 llvm::Value *CallExpression::codegen() {
