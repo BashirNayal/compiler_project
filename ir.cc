@@ -113,16 +113,23 @@ llvm::Value *String::codegen() {
   log("codegen string");
   llvm::Type *byte_type = llvm::Type::getInt8Ty(*context);
   llvm::ArrayType *string_type = llvm::ArrayType::get(byte_type, (uint64_t)string.size() + 1);
-  llvm::Constant *str_ir_value = llvm::ConstantDataArray::getString(*context, string);
+  llvm::Constant *str_ir_value = llvm::ConstantDataArray::getString(*context, string, true);
   llvm::GlobalVariable *str_ir =
      new llvm::GlobalVariable(*module, string_type,
-                        true, llvm::GlobalValue::LinkageTypes::WeakAnyLinkage,str_ir_value, "");
+                        true, llvm::GlobalVariable::WeakAnyLinkage ,str_ir_value, "");
+  str_ir->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
+  // str_ir->
+  // str_ir->setLinkage(llvm::GlobalValue::);
   // str_ir->setAlignment(llvm::MaybeAlign::;
 
   llvm::Value* zero = llvm::Constant::getNullValue(llvm::IntegerType::getInt32Ty(*context));
   llvm::Value* indices[] = {zero, zero};
-  llvm::GetElementPtrInst::Create(
-    llvm::PointerType::get(byte_type,0),str_ir, indices,"",builder->GetInsertBlock());
+  llvm::Value *GEP = llvm::GetElementPtrInst::Create(
+    string_type,str_ir, indices,"",builder->GetInsertBlock());
+  log(*GEP);
+  log(*module);
+  return GEP;
+    
   // llvm::GetElementPtrInst::Create(
   //   llvm::Type::getInt8PtrTy(*context),str_ir_value,indices,"",builder->GetInsertBlock());
   // llvm::Constant* strVal = llvm::ConstantExpr::getGetElementPtr(llvm::Type::getInt8PtrTy(*context),str_ir,indices,true);
@@ -206,7 +213,7 @@ llvm::Value *Assignment::codegen() {
     llvm::Value *AI = builder->CreateAlloca(llvm::Type::getInt32Ty(*context),nullptr, var_name);
     named_values[var_name] = AI;
   }
-  builder->CreateStore(value->codegen(), named_values[var_name]);
+  builder->CreateStore(named_values[var_name],value->codegen());
   return nullptr;
 }
 
@@ -372,7 +379,7 @@ llvm::Function *FunctionAST::codegen() {
     named_values[std::string(Arg.getName())] = &Arg;
   }
   Body->codegen();
-  if (verifyFunction(*fun)) {
+  if (verifyFunction(*fun) || true) {
     // log(*module);
     return fun;
   }
