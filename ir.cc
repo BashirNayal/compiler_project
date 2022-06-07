@@ -111,8 +111,28 @@ void init_module() {
 
 llvm::Value *String::codegen() {
   log("codegen string");
-}
+  llvm::Type *byte_type = llvm::Type::getInt8Ty(*context);
+  llvm::ArrayType *string_type = llvm::ArrayType::get(byte_type, (uint64_t)string.size() + 1);
+  llvm::Constant *str_ir_value = llvm::ConstantDataArray::getString(*context, string);
+  llvm::GlobalVariable *str_ir =
+     new llvm::GlobalVariable(*module, string_type,
+                        true, llvm::GlobalValue::LinkageTypes::WeakAnyLinkage,str_ir_value, "");
+  // str_ir->setAlignment(llvm::MaybeAlign::;
 
+  llvm::Value* zero = llvm::Constant::getNullValue(llvm::IntegerType::getInt32Ty(*context));
+  llvm::Value* indices[] = {zero, zero};
+  llvm::GetElementPtrInst::Create(
+    llvm::PointerType::get(byte_type,0),str_ir, indices,"",builder->GetInsertBlock());
+  // llvm::GetElementPtrInst::Create(
+  //   llvm::Type::getInt8PtrTy(*context),str_ir_value,indices,"",builder->GetInsertBlock());
+  // llvm::Constant* strVal = llvm::ConstantExpr::getGetElementPtr(llvm::Type::getInt8PtrTy(*context),str_ir,indices,true);
+  // return builder->CreateGEP(llvm::Type::getInt8PtrTy(*context),str_ir, zero, "");
+  // log(*strVal);
+  // exit(0);
+  // return strVal;
+
+  
+}
 
 
 llvm::Value *Operator::codegen() {
@@ -311,8 +331,30 @@ llvm::Value *CallExpression::codegen() {
 }
 
 llvm::Function *FunctionAST::codegen() {
-    log("codegen fun");
-    llvm::Function *fun = module->getFunction(Proto->get_name());
+  log("codegen fun");
+
+  llvm::Function *fun = module->getFunction(Proto->get_name());
+
+  if (Proto->get_name() == "main") {
+    log("codegen for main");
+
+
+        // Make the function type:  double(double,double) etc.
+    std::vector<llvm::Type *> main_args_type;
+    main_args_type.push_back(llvm::Type::getInt32Ty(*context));
+    llvm::Type *byte_ptr_type = llvm::Type::getInt8PtrTy(*context);
+    main_args_type.push_back(llvm::PointerType::get(byte_ptr_type ,0));
+    llvm::FunctionType *IT =
+        llvm::FunctionType::get(llvm::Type::getInt32Ty(*context), main_args_type, false);
+
+    llvm::Function *F =
+        llvm::Function::Create(IT, llvm::Function::ExternalLinkage, Proto->get_name(), module.get());
+    F->getArg(0)->setName("argc");
+    F->getArg(1)->setName("argv");
+    fun = F;
+  }
+
+
 
   if (!fun)
     fun = Proto->codegen();
@@ -322,6 +364,7 @@ llvm::Function *FunctionAST::codegen() {
   // Create a new basic block to start insertion into.
   llvm::BasicBlock *BB = llvm::BasicBlock::Create(*context, "entry", fun);
   builder->SetInsertPoint(BB);
+
 
   // Record the function arguments in the NamedValues map.
   named_values.clear();

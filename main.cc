@@ -29,7 +29,7 @@ int main() {
   global_type = {};
   global_token.type = UNKNOWN_t;
   global_token = gettok();
-  std::unique_ptr<Expression> expression;
+  std::vector<std::unique_ptr<Expression>> expressions;
   while(true) {
     switch (global_token.type) {
       case EOF_t:
@@ -42,8 +42,7 @@ int main() {
         printf("found a type\n");
         global_type = global_token.data.data_type;
         // expression = parse_id_or_fun();
-        expression = parse_typed_expression();
-        expression.get()->print("");
+        expressions.push_back(parse_typed_expression());
 
         // getNextToken();
         // parse_identifier_exp();
@@ -59,9 +58,14 @@ int main() {
     }
   }
   codegen:
+    for (int i = 0; i < expressions.size(); i ++) {
+      expressions.at(i)->print("");
+    }
+    
     init_module();
-    printf("codegen\n");
-    expression.get()->codegen();
+    for (int i = 0; i < expressions.size(); i ++) {
+      expressions.at(i)->codegen();
+    }
     get_object_file();
 
   return 0;
