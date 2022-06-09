@@ -22,69 +22,27 @@ static std::unique_ptr<llvm::Module> module;
 std::map<std::string, llvm::Value *> named_values;
 
 
-void get_object_file() {
+void get_object_file(std::string program_name) {
 
   log("creating object file");
   auto target_triple = llvm::sys::getDefaultTargetTriple();
   std::ofstream myfile;
   std::string ir_str;
-  myfile.open ("program.ll");
+
+  myfile.open (program_name + ".ll");
   llvm::raw_string_ostream output(ir_str);
   module->print(output, nullptr);
+  // for(int i = 0; i < ir_str.size(); i++) {
+  //   if (ir_str.at(i) == '\\' && ir_str.at(i) == '\\') {
+  //     ir_str.erase(i, 1);
+  //     break;
+  //   }
+  // }
   // log("program:");
   // log(ir_str);
   myfile << ir_str;
   myfile.close();
   return;
-  llvm::InitializeAllTargetInfos();
-  llvm::InitializeAllTargets();
-  llvm::InitializeAllTargetMCs();
-  llvm::InitializeAllAsmParsers();
-  llvm::InitializeAllAsmPrinters();
-  log("initialized info and target");
-  std::string err;
-  auto target = llvm::TargetRegistry::lookupTarget(target_triple, err);
-  
-  if (!target) {
-    log(err);
-    return;
-  } 
-  auto CPU = "generic";
-  auto features = "";
-  
-  llvm::TargetOptions opt;
-  auto RM = llvm::Optional<llvm::Reloc::Model>();
-  auto TargetMachine = target->createTargetMachine(target_triple, CPU, features, opt, RM);
-
-  log("created target machine");
-  module->setDataLayout(TargetMachine->createDataLayout());
-  module->setTargetTriple(target_triple);
-
-  auto Filename = "output.o";
-  std::error_code EC;
-  llvm::raw_fd_ostream dest(Filename, EC, llvm::sys::fs::OF_None);
-  log("opened file");
-  if (EC) {
-    log("Could not open file: " << EC.message());
-    return ;
-  }
-  // llvm::PassBuilder<> pass;
-  llvm::legacy::PassManager pass;
-  auto FileType = llvm::CGFT_ObjectFile;
-  
-  if (TargetMachine->addPassesToEmitFile(pass, dest, nullptr, FileType)) {
-    log("TheTargetMachine can't emit a file of this type");
-    return ;
-  }
-  log("added pass");
-  // pass.run(*module);
-  log("ran pass");
-  dest.flush();
-
-  // llvm::outs() << "Wrote " << Filename << "\n";
-  log("emitted " << Filename);
-
-
 }
 
 
@@ -144,8 +102,8 @@ llvm::Value *String::codegen() {
 
 llvm::Value *Operator::codegen() {
   log("codegen operator");
-  llvm::Value *lhs_ir = lhs.get()->codegen();
-  llvm::Value *rhs_ir = rhs.get()->codegen();
+  llvm::Value *lhs_ir = lhs->codegen();
+  llvm::Value *rhs_ir = rhs->codegen();
   llvm::IntegerType *int_type = llvm::Type::getInt32Ty(*context);
   llvm::BasicBlock *current_bb = builder->GetInsertBlock();
   llvm::Value *inst;
@@ -197,13 +155,13 @@ llvm::Value *Operator::codegen() {
         lhs_ir, rhs_ir, "", current_bb);
     case OR_t: {
       llvm::Value *or_inst = llvm::BinaryOperator::CreateOr(lhs_ir, rhs_ir, "");
-      builder.get()->Insert(or_inst);
+      builder->Insert(or_inst);
       return or_inst;
     }
     default:
       break;
   }
-  builder.get()->Insert(inst);
+  builder->Insert(inst);
   return inst;
 }
 
@@ -212,26 +170,28 @@ llvm::Value *Assignment::codegen() {
   if (def) {
     llvm::Value *AI = builder->CreateAlloca(llvm::Type::getInt32Ty(*context),nullptr, var_name);
     named_values[var_name] = AI;
+    log(*AI);
   }
-  builder->CreateStore(named_values[var_name],value->codegen());
+  builder->CreateStore(value->codegen(), named_values[var_name]);
+  
   return nullptr;
 }
 
 llvm:: Value *VarUse::codegen() {
   log("codegen varuse");
-  return named_values[var_name];
+  return builder->CreateLoad(llvm::Type::getInt32Ty(*context),named_values[var_name]);
 }
 
 llvm::Value *Return::codegen() {
   if (value) {
-    llvm::Value *ret_val = value.get()->codegen();
+    llvm::Value *ret_val = value->codegen();
     log((*ret_val));
     //TODO: this assumes int
-    builder.get()->CreateRet(ret_val);
+    builder->CreateRet(ret_val);
   }
   else {
 
-    builder.get()->CreateRetVoid();
+    builder->CreateRetVoid();
   }
   return nullptr;
 
@@ -256,7 +216,7 @@ llvm::Function *PrototypeAST::codegen() {
   // Set names for all arguments.
   unsigned Idx = 0;
   for (auto &Arg : F->args())
-    Arg.setName(parameters.at(Idx++).get()->get_name());
+    Arg.setName(parameters.at(Idx++)->get_name());
 
   return F;
 }
@@ -271,10 +231,10 @@ llvm::Value *Block::codegen() {
 }
 llvm::Value *If::codegen() {
   log("codegen if");
-  llvm::Value *if_cond_ir = cond.get()->codegen();
-  llvm::BasicBlock *current_block = builder.get()->GetInsertBlock();
+  llvm::Value *if_cond_ir = cond->codegen();
+  llvm::BasicBlock *current_block = builder->GetInsertBlock();
   llvm::StringRef prefix = current_block->getName();
-  llvm::Function *current_function = builder.get()->GetInsertBlock()->getParent();
+  llvm::Function *current_function = builder->GetInsertBlock()->getParent();
   llvm::BasicBlock *if_start_block = llvm::BasicBlock::Create(*context, prefix + ".if", current_function);
   llvm::BasicBlock *else_start_block = nullptr;
   if (else_body) {
@@ -283,23 +243,23 @@ llvm::Value *If::codegen() {
   llvm::BasicBlock *if_end_block = llvm::BasicBlock::Create(*context, prefix + ".endif", current_function);
   
   if (else_start_block) {
-    builder.get()->CreateCondBr(if_cond_ir, if_start_block, else_start_block);
+    builder->CreateCondBr(if_cond_ir, if_start_block, else_start_block);
   }
   else {
-    builder.get()->CreateCondBr(if_cond_ir, if_start_block, if_end_block);
+    builder->CreateCondBr(if_cond_ir, if_start_block, if_end_block);
   }
 
   //populate the if body
-  builder.get()->SetInsertPoint(if_start_block);
+  builder->SetInsertPoint(if_start_block);
 
-  body.get()->codegen(); 
-  builder.get()->CreateBr(if_end_block);
+  body->codegen(); 
+  builder->CreateBr(if_end_block);
   if (else_start_block) {
-      builder.get()->SetInsertPoint(else_start_block);
-      else_body.get()->codegen(); 
-      builder.get()->CreateBr(if_end_block);
+      builder->SetInsertPoint(else_start_block);
+      else_body->codegen(); 
+      builder->CreateBr(if_end_block);
   }
-  builder.get()->SetInsertPoint(if_end_block);
+  builder->SetInsertPoint(if_end_block);
   return nullptr;
 }
 llvm::Value * Elif::codegen() {
@@ -309,20 +269,20 @@ llvm::Value * Elif::codegen() {
 
 llvm::Value *While::codegen() {
   log("codegen while");
-  llvm::BasicBlock *current_block = builder.get()->GetInsertBlock();
+  llvm::BasicBlock *current_block = builder->GetInsertBlock();
   llvm::StringRef prefix = current_block->getName();
-  llvm::Function *current_function = builder.get()->GetInsertBlock()->getParent();
+  llvm::Function *current_function = builder->GetInsertBlock()->getParent();
   llvm::BasicBlock *while_cond_block = llvm::BasicBlock::Create(*context, prefix + ".while.cond", current_function);
   llvm::BasicBlock *while_start_block = llvm::BasicBlock::Create(*context, prefix + ".while.start", current_function);
   llvm::BasicBlock *while_end_block = llvm::BasicBlock::Create(*context, prefix + ".while.end", current_function);
   
   builder->CreateBr(while_cond_block);
   builder->SetInsertPoint(while_cond_block);
-  llvm::Value *while_cond_ir = cond.get()->codegen();
-  builder.get()->CreateCondBr(while_cond_ir, while_start_block, while_end_block);
+  llvm::Value *while_cond_ir = cond->codegen();
+  builder->CreateCondBr(while_cond_ir, while_start_block, while_end_block);
   builder->SetInsertPoint(while_start_block);
-  body.get()->codegen();
-  builder->CreateBr(while_start_block);
+  body->codegen();
+  builder->CreateBr(while_cond_block);
   builder->SetInsertPoint(while_end_block);
 
 
@@ -332,7 +292,7 @@ llvm::Value *CallExpression::codegen() {
   log("codegen call");
   std::vector<llvm::Value*> args_ir;
   for (int i = 0; i < args.size(); i++) {
-    args_ir.push_back(args.at(0)->codegen());
+    args_ir.push_back(args.at(i)->codegen());
   }
   return builder->CreateCall(module->getFunction(callee), args_ir, "");
 }
@@ -376,7 +336,11 @@ llvm::Function *FunctionAST::codegen() {
   // Record the function arguments in the NamedValues map.
   named_values.clear();
   for (auto &Arg : fun->args()) {
-    named_values[std::string(Arg.getName())] = &Arg;
+    if (fun->getName() == "main") break;
+    //TODO: here
+    llvm::Value *AI = builder->CreateAlloca(llvm::Type::getInt32Ty(*context),nullptr, Arg.getName() + ".");
+    llvm::Value *SI = builder->CreateStore(&Arg, AI);
+    named_values[std::string(Arg.getName())] = AI;
   }
   Body->codegen();
   if (verifyFunction(*fun) || true) {

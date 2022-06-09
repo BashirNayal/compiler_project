@@ -1,6 +1,5 @@
 #include "lexer.h"
-
-
+#include <regex>
 
 token_st global_token;
 Type_en global_type;
@@ -84,6 +83,18 @@ token_st gettok(void) {
       str += last_char;
       last_char = getchar();
     }
+    
+    for (int i = 0; i < str.size(); i++) {
+      if (str.at(i) == '\\') {
+        if (str.at(i + 1) == 'n') {
+          str.at(i + 1) = '0';
+          str.insert(i + 2, 1, 'A');
+        }
+      }
+    }
+
+
+
     last_char = getchar();
     token.type = STRING_t;
     token.data.str = (char*)malloc(str.length() + 1);

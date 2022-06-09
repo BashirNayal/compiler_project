@@ -13,15 +13,16 @@ extern token_st     global_token;
 extern Type_en      global_type;
 
 
-int main() {
+int main(int argc, char** argv) {
   setvbuf(stdout, NULL, _IONBF, 0);
   BinopPrecedence[GT_t] = 10;
   BinopPrecedence[PLUS_t] = 20;
   BinopPrecedence[MIN_t] = 20;
   BinopPrecedence[MUL_t] = 40;  // highest.
   
-  // llvm::LLVMContext context;
-  // llvm::LLVMContext context;
+  char* program_name = argv[1];
+  stdin = fopen(program_name, "r");
+
 
 
   int i = 0;
@@ -66,7 +67,10 @@ int main() {
     for (int i = 0; i < expressions.size(); i ++) {
       expressions.at(i)->codegen();
     }
-    get_object_file();
+    std::string arg(program_name);
+    arg.erase(arg.find('.'));
+    get_object_file(arg);
+    system(("./gen_exec.sh " + arg).c_str());
 
   return 0;
 }

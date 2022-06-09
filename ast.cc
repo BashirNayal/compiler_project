@@ -122,7 +122,10 @@ std::unique_ptr<Expression> parse_expression() {
         expr = parse_expression();
         break;
     default:
+      print_token(global_token);
       printf("default case\n");
+      expr->print("f");
+      exit(0);
         
   }
   switch (global_token.type) {
