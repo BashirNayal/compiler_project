@@ -74,12 +74,20 @@ std::unique_ptr<Expression> parse_expression() {
     }
     case ID_t:
       printf("found id\n");
-      //TODO: Handle function calls or indexing;
       id_name = global_token.data.name;
       getNextToken(); // eat the id name
       if (global_token.type == LPAREN_t) {
         printf("found function call\n");
         getNextToken(); // eat '('
+        if (global_token.type == RPAREN_t) {
+          getNextToken(); // eat ')'
+          if (global_token.type != SEMICOL_t) {
+            log("ERROR: expected ';' after function call");
+            exit(0);
+          }
+          getNextToken(); // eat ';'
+          return std::make_unique<CallExpression>(id_name);
+        }
         std::vector<std::unique_ptr<Expression>> args;
         while (global_token.type != SEMICOL_t) {
           args.push_back(std::move(parse_expression()));
@@ -87,8 +95,6 @@ std::unique_ptr<Expression> parse_expression() {
         }
         log("parsed args");
         return std::make_unique<CallExpression>(id_name, std::move(args));
-        //TODO: parse arguments
-        exit(0);
       }
       else if (global_token.type == LBRACK_t) {
         printf("found array addressing\n");

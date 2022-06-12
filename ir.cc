@@ -22,6 +22,8 @@ static std::unique_ptr<llvm::Module> module;
 std::map<std::string, llvm::Value *> named_values;
 std::map<std::string, bool> named_val_is_array;
 
+static llvm::StructType *timeval_struct;
+
 void get_object_file(std::string program_name) {
 
   log("creating object file");
@@ -46,6 +48,96 @@ void get_object_file(std::string program_name) {
 }
 
 
+void declare_printf() {
+    std::vector<llvm::Type *> Ints(1,llvm::Type::getInt8PtrTy(*context));
+
+  llvm::FunctionType *PT =
+      llvm::FunctionType::get(llvm::Type::getInt32Ty(*context), Ints, true);
+
+  llvm::Function *F =
+      llvm::Function::Create(PT, llvm::Function::ExternalLinkage, "printf", module.get());
+}
+void declare_memcpy() {
+  std::vector<llvm::Type *> memcpy_arg_type;
+  memcpy_arg_type.push_back(llvm::PointerType::getInt32PtrTy(*context));
+  memcpy_arg_type.push_back(llvm::PointerType::getInt32PtrTy(*context));
+  memcpy_arg_type.push_back(llvm::Type::getInt32Ty(*context));
+  llvm::Type *memcpy_ret_type = llvm::Type::getInt64PtrTy(*context); 
+  llvm::FunctionType *memcpy_type = 
+    llvm::FunctionType::get(memcpy_ret_type, memcpy_arg_type,false);
+
+  llvm::Function::Create(memcpy_type, llvm::Function::ExternalLinkage, "memcpy", module.get());
+}
+
+void declare_gettimeofday() {
+    std::vector<llvm::Type *> timeval_elm_types(2,llvm::Type::getInt64Ty(*context));
+  
+ timeval_struct = llvm::StructType::create(*context, timeval_elm_types, "struct.timeval");
+  
+
+
+  std::vector<llvm::Type*> gettimeofday_arg_type;
+  gettimeofday_arg_type.push_back(llvm::PointerType::get(timeval_struct,0));
+  gettimeofday_arg_type.push_back(llvm::Type::getInt8PtrTy(*context));
+
+  llvm::FunctionType *gettimeofday_type = 
+    llvm::FunctionType::get(llvm::Type::getInt32Ty(*context), gettimeofday_arg_type,false);
+
+  llvm::Function::Create(gettimeofday_type, llvm::Function::ExternalLinkage, "gettimeofday", module.get());
+}
+
+void define_get_time() {
+  std::vector<llvm::Type *> Ints(1,llvm::Type::getInt8PtrTy(*context));
+
+  llvm::FunctionType *PT =
+      llvm::FunctionType::get(llvm::Type::getInt32Ty(*context), false);
+
+  llvm::Function *F =
+      llvm::Function::Create(PT, llvm::Function::ExternalLinkage, "get_time", module.get());
+  
+
+
+
+  llvm::BasicBlock *BB = llvm::BasicBlock::Create(*context, "entry", F);
+  builder->SetInsertPoint(BB);
+  llvm::Value *timeval_ir = builder->CreateAlloca(timeval_struct,nullptr,"");
+  std::vector<llvm::Value*> call_args;
+  call_args.push_back(timeval_ir);
+  call_args.push_back(llvm::Constant::getNullValue(llvm::PointerType::getInt8PtrTy(*context)));
+  llvm::Value *gettimeofday_ret_val = builder->CreateCall(module->getFunction("gettimeofday"), call_args);
+
+  llvm::Value *zero = llvm::Constant::getNullValue(llvm::IntegerType::getInt32Ty(*context));
+  llvm::Value *one = llvm::ConstantInt::get(llvm::IntegerType::getInt32Ty(*context), 1);
+  llvm::Value *zero_zero[] = {zero, zero};
+  llvm::Value *zero_one[] = {zero, one};
+
+
+  llvm::Value *first_member = builder->CreateGEP(timeval_struct,timeval_ir,zero_zero, "strct.first");
+  llvm::Value *second_member = builder->CreateGEP(timeval_struct,timeval_ir,zero_one, "strct.second");
+  llvm::Value *second_member_value = 
+    builder->CreateLoad(llvm::IntegerType::getInt64Ty(*context),second_member);
+  llvm::Value *casted_second_member_val = builder->CreateCast(
+    llvm::Instruction::CastOps::Trunc, second_member_value, llvm::IntegerType::getInt32Ty(*context));
+ 
+  builder->CreateRet(casted_second_member_val); 
+  // log(llvm::AllocaInst(timeval_struct,0,"test", builder->GetInsertBlock()));
+
+
+
+  
+
+  // if (verifyFunction(*F)) {
+  //   // log(*module);
+    
+  // }
+  // else {
+  //   // log(*module);
+  //   log("ERROR: failed to generate function IR for xxxxxxxx");
+  //   F->eraseFromParent();
+  // }
+  
+}
+
 void init_module() {
   // Open a new context and module.
   context = std::make_unique<llvm::LLVMContext>();
@@ -54,25 +146,11 @@ void init_module() {
   // Create a new builder for the module.
   builder = std::make_unique<llvm::IRBuilder<>>(*context);
 
+  declare_printf();
+  declare_memcpy();
+  declare_gettimeofday();
+  define_get_time();
 
-  std::vector<llvm::Type *> Ints(1,llvm::Type::getInt8PtrTy(*context));
-
-  llvm::FunctionType *PT =
-      llvm::FunctionType::get(llvm::Type::getInt32Ty(*context), Ints, true);
-
-  llvm::Function *F =
-      llvm::Function::Create(PT, llvm::Function::ExternalLinkage, "printf", module.get());
-
-// std::vector<llvm::Type *> test(3, , llvm::PointerType::getInt32PtrTy(*context), llvm::Type::getInt32Ty(*context)); 
-std::vector<llvm::Type *> memcpy_arg_type;
-memcpy_arg_type.push_back(llvm::PointerType::getInt32PtrTy(*context));
-memcpy_arg_type.push_back(llvm::PointerType::getInt32PtrTy(*context));
-memcpy_arg_type.push_back(llvm::Type::getInt32Ty(*context));
- llvm::Type *memcpy_ret_type = llvm::Type::getInt64PtrTy(*context); 
-  llvm::FunctionType *memcpy_type = 
-    llvm::FunctionType::get(memcpy_ret_type, memcpy_arg_type,false);
-
-      llvm::Function::Create(memcpy_type, llvm::Function::ExternalLinkage, "memcpy", module.get());
 
   log("module initialized");
 }
@@ -319,12 +397,14 @@ llvm::Value *CallExpression::codegen() {
 llvm::Value *Array::codegen() {
   log("codegen array");
   llvm::Value *ir_size = size->codegen();
+  llvm::Value * AI = builder->CreateAlloca(llvm::Type::getInt32Ty(*context), ir_size, name);
+  named_values[name] = AI;
+  named_val_is_array[name] = true;
+
   if (initial_values.size() == 0) {
-    llvm::Value * AI = builder->CreateAlloca(llvm::Type::getInt32Ty(*context), ir_size, name);
-    named_values[name] = AI;
-    named_val_is_array[name] = true;
     return AI; 
   }
+
   std::vector<llvm::Constant *> ir_init_values;
   for (int i = 0; i < initial_values.size(); i++) {
     llvm::IntegerType *int_type = llvm::Type::getInt32Ty(*context);
@@ -332,10 +412,22 @@ llvm::Value *Array::codegen() {
       llvm::ConstantInt::get(int_type,dynamic_cast<Const*>(initial_values.at(i).get())->get_val());
     ir_init_values.push_back(constant);
   }
+
+    // llvm::GlobalVariable *str_ir =
+    //  new llvm::GlobalVariable(*module, llvm::ArrayType::get(llvm::Type::getInt32Ty(*context),ir_init_values.size()),
+    //                     true, llvm::GlobalVariable::WeakAnyLinkage ,ir_init_values, "");
+
   llvm::Constant *init = llvm::ConstantArray::get(llvm::ArrayType::get(llvm::Type::getInt32Ty(*context),ir_init_values.size()), ir_init_values);
-  log(*init);
-  
-  // exit(0);
+  // log(*init);
+  log("ARRAY INITIALIZTION NEEDS SUPPORT");
+  exit(0);
+  std::vector<llvm::Value*> memcpy_args;
+  memcpy_args.push_back(AI);
+  memcpy_args.push_back(init);
+  memcpy_args.push_back(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context), initial_values.size()));
+  builder->CreateStore(AI, init);
+  // builder->CreateCall(module->getFunction("memcpy"), memcpy_args);
+  return AI;
 }
 llvm::Value *ArrayRef::codegen() {
   log("codegen arrayref");

@@ -144,11 +144,16 @@ class CallExpression : public Expression {
   std::vector<std::unique_ptr<Expression>> args;
 
 public:
+  CallExpression(const std::string &callee) :
+    callee(callee) {}
   CallExpression(const std::string &callee,
               std::vector<std::unique_ptr<Expression>> args)
     : callee(callee), args(std::move(args)) {}
   void print(std::string str) {
     std::cout << str << "fun call: " << callee << std::endl;
+    if (args.size() == 0) {
+      return;
+    }
     for (int i = 0; i < args.size(); i++) {
       args.at(i)->print(str + "--");
     }
