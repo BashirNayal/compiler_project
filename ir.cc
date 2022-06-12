@@ -20,7 +20,7 @@ static std::unique_ptr<llvm::IRBuilder<>> builder;
 static std::unique_ptr<llvm::Module> module;
 
 std::map<std::string, llvm::Value *> named_values;
-
+std::map<std::string, bool> named_val_is_array;
 
 void get_object_file(std::string program_name) {
 
@@ -63,6 +63,16 @@ void init_module() {
   llvm::Function *F =
       llvm::Function::Create(PT, llvm::Function::ExternalLinkage, "printf", module.get());
 
+// std::vector<llvm::Type *> test(3, , llvm::PointerType::getInt32PtrTy(*context), llvm::Type::getInt32Ty(*context)); 
+std::vector<llvm::Type *> memcpy_arg_type;
+memcpy_arg_type.push_back(llvm::PointerType::getInt32PtrTy(*context));
+memcpy_arg_type.push_back(llvm::PointerType::getInt32PtrTy(*context));
+memcpy_arg_type.push_back(llvm::Type::getInt32Ty(*context));
+ llvm::Type *memcpy_ret_type = llvm::Type::getInt64PtrTy(*context); 
+  llvm::FunctionType *memcpy_type = 
+    llvm::FunctionType::get(memcpy_ret_type, memcpy_arg_type,false);
+
+      llvm::Function::Create(memcpy_type, llvm::Function::ExternalLinkage, "memcpy", module.get());
 
   log("module initialized");
 }
@@ -70,6 +80,7 @@ void init_module() {
 llvm::Value *String::codegen() {
   log("codegen string");
   llvm::Type *byte_type = llvm::Type::getInt8Ty(*context);
+  // string.find("\n"
   llvm::ArrayType *string_type = llvm::ArrayType::get(byte_type, (uint64_t)string.size() + 1);
   llvm::Constant *str_ir_value = llvm::ConstantDataArray::getString(*context, string, true);
   llvm::GlobalVariable *str_ir =
@@ -170,6 +181,7 @@ llvm::Value *Assignment::codegen() {
   if (def) {
     llvm::Value *AI = builder->CreateAlloca(llvm::Type::getInt32Ty(*context),nullptr, var_name);
     named_values[var_name] = AI;
+    named_val_is_array[var_name] = false;
     log(*AI);
   }
   builder->CreateStore(value->codegen(), named_values[var_name]);
@@ -179,6 +191,13 @@ llvm::Value *Assignment::codegen() {
 
 llvm:: Value *VarUse::codegen() {
   log("codegen varuse");
+  // if (named_values[var_name]
+  if (named_val_is_array[var_name] == true) {
+    log("var use for arr ptr");
+    log(*named_values[var_name]);
+    return named_values[var_name];
+
+  }
   return builder->CreateLoad(llvm::Type::getInt32Ty(*context),named_values[var_name]);
 }
 
@@ -294,15 +313,29 @@ llvm::Value *CallExpression::codegen() {
   for (int i = 0; i < args.size(); i++) {
     args_ir.push_back(args.at(i)->codegen());
   }
+  log("before the crash");
   return builder->CreateCall(module->getFunction(callee), args_ir, "");
 }
 llvm::Value *Array::codegen() {
   log("codegen array");
   llvm::Value *ir_size = size->codegen();
-  // llvm::ArrayType *array_type = llvm::ArrayType::get(,0);
-  llvm::Value * AI = builder->CreateAlloca(llvm::Type::getInt32Ty(*context), ir_size, name);
-  named_values[name] = AI;
-  return AI; 
+  if (initial_values.size() == 0) {
+    llvm::Value * AI = builder->CreateAlloca(llvm::Type::getInt32Ty(*context), ir_size, name);
+    named_values[name] = AI;
+    named_val_is_array[name] = true;
+    return AI; 
+  }
+  std::vector<llvm::Constant *> ir_init_values;
+  for (int i = 0; i < initial_values.size(); i++) {
+    llvm::IntegerType *int_type = llvm::Type::getInt32Ty(*context);
+    llvm::Constant *constant = 
+      llvm::ConstantInt::get(int_type,dynamic_cast<Const*>(initial_values.at(i).get())->get_val());
+    ir_init_values.push_back(constant);
+  }
+  llvm::Constant *init = llvm::ConstantArray::get(llvm::ArrayType::get(llvm::Type::getInt32Ty(*context),ir_init_values.size()), ir_init_values);
+  log(*init);
+  
+  // exit(0);
 }
 llvm::Value *ArrayRef::codegen() {
   log("codegen arrayref");

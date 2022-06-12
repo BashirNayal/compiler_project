@@ -28,7 +28,8 @@ bool is_end_expression() {
 return (global_token.type == SEMICOL_t || 
             global_token.type == RPAREN_t || 
             global_token.type == COMMA_t || 
-            global_token.type == RBRACK_t);
+            global_token.type == RBRACK_t || 
+            global_token.type == RBRACE_t);
 }
 
 void handle_extern() {
@@ -242,11 +243,24 @@ std::unique_ptr<Expression> parse_typed_expression() {
     printf("parsing array\n");
     getNextToken(); // eat '['
     std::unique_ptr<Expression> size = parse_expression();
-    if (global_token.type != RBRACK_t) {
-      printf("ERROR: failed to parse array\n");
+    // if (global_token.type != RBRACK_t) {
+    //   printf("ERROR: failed to parse array\n");
+    // }
+    // getNextToken(); // eat ']'
+    if (global_token.type == ASSIGN_t) {
+      log("found array initialziation");
+      getNextToken(); // eat '='
+      if (global_token.type != LBRACE_t) {
+        log("ERROR: expected '{' at the start of array initializer");
+      }
+      getNextToken(); // eat '{'
+      std::vector<std::unique_ptr<Expression>> initial_values; 
+      while (global_token.type != SEMICOL_t) {
+        initial_values.push_back(std::move(parse_expression()));
+      }
+      getNextToken(); // eat ';'
+      return std::make_unique<Array>(var_name, std::move(size), std::move(initial_values));
     }
-    getNextToken(); // eat ']'
-    size->print("xxxx");
     return std::make_unique<Array>(var_name, std::move(size));
   }
   else if (global_token.type == LPAREN_t) { // function 

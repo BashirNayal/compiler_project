@@ -87,8 +87,8 @@ token_st gettok(void) {
     for (int i = 0; i < str.size(); i++) {
       if (str.at(i) == '\\') {
         if (str.at(i + 1) == 'n') {
-          str.at(i + 1) = '0';
-          str.insert(i + 2, 1, 'A');
+          str.erase(i, 2);
+          str.insert(i,"\n"); 
         }
       }
     }
