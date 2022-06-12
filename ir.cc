@@ -296,6 +296,30 @@ llvm::Value *CallExpression::codegen() {
   }
   return builder->CreateCall(module->getFunction(callee), args_ir, "");
 }
+llvm::Value *Array::codegen() {
+  log("codegen array");
+  llvm::Value *ir_size = size->codegen();
+  // llvm::ArrayType *array_type = llvm::ArrayType::get(,0);
+  llvm::Value * AI = builder->CreateAlloca(llvm::Type::getInt32Ty(*context), ir_size, name);
+  named_values[name] = AI;
+  return AI; 
+}
+llvm::Value *ArrayRef::codegen() {
+  log("codegen arrayref");
+
+  llvm::Value *ir_index = index->codegen();
+  llvm::Value* zero = llvm::Constant::getNullValue(llvm::IntegerType::getInt32Ty(*context));
+  llvm::Value* indices[] = {ir_index, zero};
+  llvm::Value *GEP =
+   builder->CreateGEP(named_values[name]->getType()->getPointerElementType(), named_values[name], ir_index, "");
+  if (!value) {
+    return builder->CreateLoad(llvm::IntegerType::getInt32Ty(*context), GEP);
+  }
+  else {
+    llvm::Value *ir_value = value->codegen();
+    return builder->CreateStore(ir_value, GEP);
+  }
+}
 
 llvm::Function *FunctionAST::codegen() {
   log("codegen fun");

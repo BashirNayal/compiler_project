@@ -174,6 +174,51 @@ class PrototypeAST {
   std::string get_name() {return fun_name;}
 };
 
+class Array : public Expression {
+  std::string name; 
+  std::unique_ptr<Expression> size;
+  std::vector<std::unique_ptr<Expression>> initial_values;
+  public:
+  Array(std::string name, std::unique_ptr<Expression> size) :
+  size(std::move(size)), name(name) {}
+
+  Array(std::string name, std::unique_ptr<Expression> size, std::vector<std::unique_ptr<Expression>> intial_values) :
+  size(std::move(size)), name(name), initial_values(std::move(intial_values)) {}  
+
+  void print(std::string str) {
+    std::cout << str << "array: " << name << std::endl;
+    std::cout << str << "size:" << std::endl;
+    size->print(str);
+    for (int i = 0; i < initial_values.size(); i++) {
+      initial_values.at(i)->print(str + "--");
+    }
+  }
+  virtual llvm::Value *codegen() override;
+  
+};
+
+class ArrayRef : public Expression {
+  std::string name;
+  std::unique_ptr<Expression> index;
+  std::unique_ptr<Expression> value;
+  public:
+  ArrayRef(std::string name, std::unique_ptr<Expression> index) :
+  name(name), index(std::move(index)) {}
+  ArrayRef(std::string name, std::unique_ptr<Expression> index, std::unique_ptr<Expression> value) :
+  name(name), value(std::move(value)), index(std::move(index)) {}
+
+  void print(std::string str) {
+    log(str << "array ref: " << name);
+    log(str << "index: ");
+    index->print("--" + str);
+    if (value) {
+      log(str << "=");
+      value->print("--" + str);
+    }
+  } 
+  virtual llvm::Value * codegen() override;
+
+};
 class Block : public Expression{
   std::vector<std::unique_ptr<Expression>> expressions;
 
