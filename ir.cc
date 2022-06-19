@@ -32,6 +32,7 @@ void run_passes(bool bc, bool bce) {
     do_bounds_check(*module);
   }
   if (bce) {
+    do_bounds_check_elim(*module);
   }
 }
 

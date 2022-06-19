@@ -230,3 +230,44 @@ bool do_bounds_check(llvm::Module &M) {
     return Changed;
 }
 
+
+
+
+
+
+
+
+
+bool remove_redundant_bc(llvm::Function &F) {
+    log("remove red check");
+    for (llvm::inst_iterator II = inst_begin(F), E = inst_end(F); II != E; ++II) {
+    llvm::Instruction *I = &*II;
+        if (llvm::CallInst *CI = llvm::dyn_cast<llvm::CallInst>(I)) {
+            if (CI->getCalledFunction()->getName() == "__check_bounds__") {
+                auto CII = CI->arg_begin();
+                llvm::Value *index = CII->get();
+                CII++;
+                llvm::Value *size = CII->get();
+                log("index " << *index);
+                log("size " << *size);
+            }
+            
+        }
+    }
+
+}
+
+
+
+bool do_bounds_check_elim(llvm::Module &M) {
+    bool Changed = false;
+    for (llvm::Function &F : M) {
+        if (!shouldInstrument(&F)) {
+            continue;
+        }
+        log("Visiting function for elimination of bounds-check: " << F.getName());
+        Changed |= remove_redundant_bc(F); 
+    }
+
+    return Changed;
+}
