@@ -1,0 +1,1 @@
+bool do_bounds_check(llvm::Module &M);

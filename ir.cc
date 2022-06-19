@@ -15,6 +15,9 @@
 #include <fstream>
 #include "llvm/IR/LegacyPassManager.h"
 
+#include "boundscheck.h"
+
+
 static std::unique_ptr<llvm::LLVMContext> context;
 static std::unique_ptr<llvm::IRBuilder<>> builder;
 static std::unique_ptr<llvm::Module> module;
@@ -23,6 +26,14 @@ std::map<std::string, llvm::Value *> named_values;
 std::map<std::string, bool> named_val_is_array;
 
 static llvm::StructType *timeval_struct;
+
+void run_passes(bool bc, bool bce) {
+  if(bc) {
+    do_bounds_check(*module);
+  }
+  if (bce) {
+  }
+}
 
 void get_object_file(std::string program_name) {
 
@@ -49,13 +60,23 @@ void get_object_file(std::string program_name) {
 
 
 void declare_printf() {
-    std::vector<llvm::Type *> Ints(1,llvm::Type::getInt8PtrTy(*context));
+  std::vector<llvm::Type *> Ints(1,llvm::Type::getInt8PtrTy(*context));
 
   llvm::FunctionType *PT =
       llvm::FunctionType::get(llvm::Type::getInt32Ty(*context), Ints, true);
 
   llvm::Function *F =
       llvm::Function::Create(PT, llvm::Function::ExternalLinkage, "printf", module.get());
+}
+void declare_exit() {
+  std::vector<llvm::Type *> Ints(1,llvm::Type::getInt32Ty(*context));
+
+  llvm::FunctionType *PT =
+      llvm::FunctionType::get(llvm::Type::getVoidTy(*context), Ints, false);
+
+  llvm::Function *F =
+      llvm::Function::Create(PT, llvm::Function::ExternalLinkage, "exit", module.get());
+
 }
 void declare_memcpy() {
   std::vector<llvm::Type *> memcpy_arg_type;
@@ -120,22 +141,62 @@ void define_get_time() {
     llvm::Instruction::CastOps::Trunc, second_member_value, llvm::IntegerType::getInt32Ty(*context));
  
   builder->CreateRet(casted_second_member_val); 
-  // log(llvm::AllocaInst(timeval_struct,0,"test", builder->GetInsertBlock()));
-
 
 
   
+}
 
-  // if (verifyFunction(*F)) {
-  //   // log(*module);
+void define_check_bounds() {
+    std::vector<llvm::Type *> param_types;
+    param_types.push_back(llvm::Type::getInt32Ty(*context));
+    param_types.push_back(llvm::Type::getInt32Ty(*context));
+
+  llvm::FunctionType *PT =
+      llvm::FunctionType::get(llvm::Type::getVoidTy(*context), param_types, false);
+
+  llvm::Function *F =
+      llvm::Function::Create(PT, llvm::Function::ExternalLinkage, "__check_bounds__", module.get());
+  
+
+
+
+  llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(*context, "entry", F);
+  llvm::BasicBlock *true_block = llvm::BasicBlock::Create(*context, "memory_err", F);
+  llvm::BasicBlock *false_block = llvm::BasicBlock::Create(*context, "memory_ok", F);
+  
+  builder->SetInsertPoint(entry_block);
+
+  llvm::Value *cmp_inst = 
+   builder->CreateCmp(llvm::CmpInst::Predicate::ICMP_SGE, F->getArg(0), F->getArg(1));
+  builder->CreateCondBr(cmp_inst, true_block, false_block);
+  builder->SetInsertPoint(true_block);
+  // TODO:: add call to exit
+    llvm::Type *byte_type = llvm::Type::getInt8Ty(*context);
+  std::string string = "error: memory violation\n";
+  llvm::ArrayType *string_type = llvm::ArrayType::get(byte_type, (uint64_t)string.size() + 1);
+  llvm::Constant *str_ir_value = llvm::ConstantDataArray::getString(*context, string, true);
+  llvm::GlobalVariable *str_ir =
+     new llvm::GlobalVariable(*module, string_type,
+                        true, llvm::GlobalVariable::WeakAnyLinkage ,str_ir_value, "");
+  str_ir->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
     
-  // }
-  // else {
-  //   // log(*module);
-  //   log("ERROR: failed to generate function IR for xxxxxxxx");
-  //   F->eraseFromParent();
-  // }
+
+  llvm::Value* zero = llvm::Constant::getNullValue(llvm::IntegerType::getInt32Ty(*context));
+  llvm::Value* indices[] = {zero, zero};
+  llvm::Value *GEP = llvm::GetElementPtrInst::Create(
+    string_type,str_ir, indices,"",builder->GetInsertBlock());
+
+  builder->CreateCall(module->getFunction("printf"), GEP);
   
+  builder->CreateCall(
+    module->getFunction("exit"), llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context), 1));
+  builder->CreateRetVoid();
+
+  builder->SetInsertPoint(false_block);
+  builder->CreateRetVoid();
+
+ 
+
 }
 
 void init_module() {
@@ -147,10 +208,11 @@ void init_module() {
   builder = std::make_unique<llvm::IRBuilder<>>(*context);
 
   declare_printf();
+  declare_exit();
   declare_memcpy();
   declare_gettimeofday();
   define_get_time();
-
+  define_check_bounds();
 
   log("module initialized");
 }
@@ -173,8 +235,7 @@ llvm::Value *String::codegen() {
   llvm::Value* indices[] = {zero, zero};
   llvm::Value *GEP = llvm::GetElementPtrInst::Create(
     string_type,str_ir, indices,"",builder->GetInsertBlock());
-  log(*GEP);
-  log(*module);
+
   return GEP;
     
   // llvm::GetElementPtrInst::Create(
@@ -417,15 +478,30 @@ llvm::Value *Array::codegen() {
     //  new llvm::GlobalVariable(*module, llvm::ArrayType::get(llvm::Type::getInt32Ty(*context),ir_init_values.size()),
     //                     true, llvm::GlobalVariable::WeakAnyLinkage ,ir_init_values, "");
 
-  llvm::Constant *init = llvm::ConstantArray::get(llvm::ArrayType::get(llvm::Type::getInt32Ty(*context),ir_init_values.size()), ir_init_values);
+  // llvm::Constant *init = llvm::ConstantArray::get(llvm::ArrayType::get(llvm::Type::getInt32Ty(*context),ir_init_values.size()), ir_init_values);
   // log(*init);
-  log("ARRAY INITIALIZTION NEEDS SUPPORT");
-  exit(0);
-  std::vector<llvm::Value*> memcpy_args;
-  memcpy_args.push_back(AI);
-  memcpy_args.push_back(init);
-  memcpy_args.push_back(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context), initial_values.size()));
-  builder->CreateStore(AI, init);
+
+  // std::vector<llvm::Value*> memcpy_args;
+  // memcpy_args.push_back(AI);
+  // memcpy_args.push_back(init);
+  // memcpy_args.push_back(llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context), initial_values.size()));
+  // builder->CreateStore(AI, init);
+
+  for(int i = 0; i < ir_init_values.size(); i++) {
+    log("ARRAY INITIALIZTION NEEDS SUPPORT");
+
+    llvm::Value *ir_index = llvm::ConstantInt::get(llvm::IntegerType::getInt32Ty(*context), i);
+    llvm::Value* zero = llvm::Constant::getNullValue(llvm::IntegerType::getInt32Ty(*context));
+    llvm::Value* indices[] = {ir_index, zero};
+    llvm::Value *GEP =
+      builder->CreateGEP(named_values[name]->getType()->getPointerElementType(), named_values[name], ir_index, "");
+
+    llvm::Value *ir_value = ir_init_values.at(i);
+    builder->CreateStore(ir_value, GEP);
+
+
+  }
+
   // builder->CreateCall(module->getFunction("memcpy"), memcpy_args);
   return AI;
 }

@@ -19,8 +19,19 @@ int main(int argc, char** argv) {
   BinopPrecedence[PLUS_t] = 20;
   BinopPrecedence[MIN_t] = 20;
   BinopPrecedence[MUL_t] = 40;  // highest.
-  
+  bool bound_check = false, bound_check_elimination = false;
   char* program_name = argv[1];
+  if (argc > 2) {
+    if (argc == 3) {
+      bound_check = true;
+    }
+    else {
+      bound_check = true;
+      bound_check_elimination = true;
+    }
+  }
+
+
   stdin = fopen(program_name, "r");
 
 
@@ -67,6 +78,7 @@ int main(int argc, char** argv) {
     for (int i = 0; i < expressions.size(); i ++) {
       expressions.at(i)->codegen();
     }
+    run_passes(bound_check, bound_check_elimination);
     std::string arg(program_name);
     arg.erase(arg.find('.'));
     get_object_file(arg);

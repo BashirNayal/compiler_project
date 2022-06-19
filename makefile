@@ -1,5 +1,5 @@
 
-OBJS = main.o  ast.o lexer.o ir.o 
+OBJS = main.o  ast.o lexer.o ir.o boundscheck.o
 HEADERS = lexer.h ast.h llvm.h ir.h common.h
 OUT = comp.bin
 FLAGS = -g
@@ -17,6 +17,9 @@ all: $(OBJS)
 
 # common.o: common.cc $(HEADERS)
 # 	$(CC) -c $(FLAGS) common.cc $(LLVM_HDRS)
+
+boundscheck.o: boundscheck.cc $(HEADERS)
+	$(CC) -c $(FLAGS) boundscheck.cc $(LLVM_FLAGS) $(LLVM_HDRS)
 
 ast.o: ast.cc $(HEADERS)
 	$(CC) ast.h -c  $(FLAGS) ast.cc $(LLVM_FLAGS) $(LLVM_HDRS)
