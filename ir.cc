@@ -11,9 +11,11 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
-
+#include <llvm/Support/SourceMgr.h>
+#include <llvm/IRReader/IRReader.h>
 #include <fstream>
 #include "llvm/IR/LegacyPassManager.h"
+
 
 #include "boundscheck.h"
 
@@ -31,7 +33,20 @@ void run_passes(bool bc, bool bce) {
   if(bc) {
     do_bounds_check(*module);
   }
+
+  get_object_file("temporary_ir");
+  system("opt-14 -mem2reg -licm -sccp  temporary_ir.ll -S -o temporary_ir.ll");
+  llvm::SMDiagnostic err;
+  module = llvm::parseIRFile("temporary_ir.ll", err, *context);
+  system("unlink temporary_ir.ll");
+  if (!module) {
+    log("Encountered an error while reading temporary_ir.ll");
+    exit(0);
+  }
+
+
   if (bce) {
+
     do_bounds_check_elim(*module);
   }
 }
@@ -46,19 +61,10 @@ void get_object_file(std::string program_name) {
   myfile.open (program_name + ".ll");
   llvm::raw_string_ostream output(ir_str);
   module->print(output, nullptr);
-  // for(int i = 0; i < ir_str.size(); i++) {
-  //   if (ir_str.at(i) == '\\' && ir_str.at(i) == '\\') {
-  //     ir_str.erase(i, 1);
-  //     break;
-  //   }
-  // }
-  // log("program:");
-  // log(ir_str);
   myfile << ir_str;
   myfile.close();
   return;
 }
-
 
 void declare_printf() {
   std::vector<llvm::Type *> Ints(1,llvm::Type::getInt8PtrTy(*context));
@@ -171,8 +177,8 @@ void define_check_bounds() {
    builder->CreateCmp(llvm::CmpInst::Predicate::ICMP_SGE, F->getArg(0), F->getArg(1));
   builder->CreateCondBr(cmp_inst, true_block, false_block);
   builder->SetInsertPoint(true_block);
-  // TODO:: add call to exit
-    llvm::Type *byte_type = llvm::Type::getInt8Ty(*context);
+
+  llvm::Type *byte_type = llvm::Type::getInt8Ty(*context);
   std::string string = "error: memory violation\n";
   llvm::ArrayType *string_type = llvm::ArrayType::get(byte_type, (uint64_t)string.size() + 1);
   llvm::Constant *str_ir_value = llvm::ConstantDataArray::getString(*context, string, true);

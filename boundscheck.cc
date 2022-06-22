@@ -234,12 +234,8 @@ bool do_bounds_check(llvm::Module &M) {
 
 
 
-
-
-
-
 bool remove_redundant_bc(llvm::Function &F) {
-    log("remove red check");
+    log("remove redundant check");
     for (llvm::inst_iterator II = inst_begin(F), E = inst_end(F); II != E; ++II) {
     llvm::Instruction *I = &*II;
         if (llvm::CallInst *CI = llvm::dyn_cast<llvm::CallInst>(I)) {
@@ -249,7 +245,13 @@ bool remove_redundant_bc(llvm::Function &F) {
                 CII++;
                 llvm::Value *size = CII->get();
                 log("index " << *index);
-                log("size " << *size);
+                // log("size " << *size);
+                if (llvm::PHINode *phi = llvm::dyn_cast<llvm::PHINode>(index)) {
+                    for (int i = 0; i < (int)phi->getNumOperands(); i++) {
+                        log(*phi->getOperand(i));
+                    }
+                }
+
             }
             
         }
