@@ -1,9 +1,12 @@
-#define DEBUG_TYPE "BoundChecker"
+// #define DEBUG_TYPE "BoundChecker"
 #include "llvm.h"
 #include "common.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IRBuilder.h"
-
+#include "llvm/IR/Dominators.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "boundscheck.h"
+ 
 llvm::Function *checkBoundsFn;
 
 std::pair<llvm::Value *, llvm::Value *>  getSizeAndAbsIndex(llvm::Value &V,
@@ -209,6 +212,7 @@ bool instrumentAllocations(llvm::Function &F) {
     return Changed;
 }
 
+
 bool do_bounds_check(llvm::Module &M) {
     llvm::LLVMContext &C = M.getContext();
     llvm::Type *VoidTy = llvm::Type::getVoidTy(C);
@@ -230,8 +234,65 @@ bool do_bounds_check(llvm::Module &M) {
     return Changed;
 }
 
+llvm::SmallVector<llvm::CallInst*>to_be_removed;
+
+var_range_st range_union(std::vector<var_range_st> ranges) {
+    var_range_st res_range = ranges.at(0);
+    log("union");
+    log("Operand 0: [" << res_range.lower_bound << "," << res_range.upper_bound << "]");
+    for (int i = 1; i < ranges.size(); i++) {
+        log("Operand " << i << ": [" << ranges.at(i).lower_bound << "," << ranges.at(i).upper_bound << "]");
+        res_range.lower_bound = std::min(res_range.lower_bound, ranges.at(i).lower_bound);
+        res_range.upper_bound = std::max(res_range.upper_bound, ranges.at(i).upper_bound);
+    }
+    return res_range;
+}
 
 
+var_range_st get_var_range(llvm::Value *variable) {
+                    // log("size " << *size);
+
+
+    var_range_s range;
+    range.lower_bound = min_infinity;
+    range.upper_bound = plus_infinity;
+
+
+    if (llvm::ConstantInt *variable_const = llvm::dyn_cast<llvm::ConstantInt>(variable)) {
+        range.lower_bound = variable_const->getSExtValue();
+        range.upper_bound = variable_const->getSExtValue();
+        return range;
+
+    }
+    else if (llvm::AllocaInst *AI = llvm::dyn_cast<llvm::AllocaInst>(variable)) {
+        log("alloca");
+    }
+    else if (llvm::BinaryOperator *BIN = llvm::dyn_cast<llvm::BinaryOperator>(variable)) {
+        log("binOp: " << *BIN);
+        // log(*BIN->getParent());
+    }
+
+    return range;
+    
+}
+
+var_range_st var_range_analysis(llvm::Value *instruction) {
+    var_range_s range;
+    range.lower_bound = min_infinity;
+    range.upper_bound = plus_infinity;
+
+    if (llvm::PHINode *phi = llvm::dyn_cast<llvm::PHINode>(instruction)) {
+        std::vector<var_range_st> phi_operands_range;
+        for (int i = 0; i < (int)phi->getNumOperands(); i++) {
+            phi_operands_range.push_back(get_var_range(phi->getOperand(i)));
+        }
+        range = range_union(phi_operands_range);
+    }   
+    else {
+        range = get_var_range(instruction);
+    }
+    return range; 
+}
 
 
 bool remove_redundant_bc(llvm::Function &F) {
@@ -245,24 +306,23 @@ bool remove_redundant_bc(llvm::Function &F) {
                 CII++;
                 llvm::Value *size = CII->get();
                 log("index " << *index);
-                // log("size " << *size);
-                if (llvm::PHINode *phi = llvm::dyn_cast<llvm::PHINode>(index)) {
-                    for (int i = 0; i < (int)phi->getNumOperands(); i++) {
-                        log(*phi->getOperand(i));
-                    }
-                }
-
-            }
-            
+                var_range_s range = var_range_analysis(index);
+                log(index->getName() << "range: [" << range.lower_bound << "," << range.upper_bound << "]\n"); 
+            }   
         }
     }
-
+    for (int i = 0; i < to_be_removed.size(); i++) {
+        to_be_removed[i]->eraseFromParent();
+    }
 }
 
 
 
 bool do_bounds_check_elim(llvm::Module &M) {
     bool Changed = false;
+
+
+
     for (llvm::Function &F : M) {
         if (!shouldInstrument(&F)) {
             continue;
