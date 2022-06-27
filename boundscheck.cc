@@ -235,6 +235,9 @@ bool do_bounds_check(llvm::Module &M) {
 }
 
 llvm::SmallVector<llvm::CallInst*>to_be_removed;
+std::map<llvm::Value*, var_range_s> var_ranges;
+llvm::Value *current_var;
+
 
 var_range_st range_union(std::vector<var_range_st> ranges) {
     var_range_st res_range = ranges.at(0);
@@ -245,53 +248,92 @@ var_range_st range_union(std::vector<var_range_st> ranges) {
         res_range.lower_bound = std::min(res_range.lower_bound, ranges.at(i).lower_bound);
         res_range.upper_bound = std::max(res_range.upper_bound, ranges.at(i).upper_bound);
     }
+    
     return res_range;
 }
 
 
-var_range_st get_var_range(llvm::Value *variable) {
-                    // log("size " << *size);
+// var_range_st get_var_range(llvm::Value *variable) {
+//                     // log("size " << *size);
 
 
-    var_range_s range;
-    range.lower_bound = min_infinity;
-    range.upper_bound = plus_infinity;
+//     // var_range_s range;
+//     // range.lower_bound = min_infinity;
+//     // range.upper_bound = plus_infinity;
 
 
-    if (llvm::ConstantInt *variable_const = llvm::dyn_cast<llvm::ConstantInt>(variable)) {
-        range.lower_bound = variable_const->getSExtValue();
-        range.upper_bound = variable_const->getSExtValue();
-        return range;
 
-    }
-    else if (llvm::AllocaInst *AI = llvm::dyn_cast<llvm::AllocaInst>(variable)) {
-        log("alloca");
-    }
-    else if (llvm::BinaryOperator *BIN = llvm::dyn_cast<llvm::BinaryOperator>(variable)) {
-        log("binOp: " << *BIN);
-        // log(*BIN->getParent());
-    }
+//     // else if (llvm::AllocaInst *AI = llvm::dyn_cast<llvm::AllocaInst>(variable)) {
+//     //     log("alloca");
+//     // }
+//     // else if (llvm::BinaryOperator *BIN = llvm::dyn_cast<llvm::BinaryOperator>(variable)) {
+//     //     log("binOp: " << *BIN);
+//     //     // log(*BIN->getParent());
+//     // }
 
-    return range;
+//     // return range;
     
-}
+// }
 
 var_range_st var_range_analysis(llvm::Value *instruction) {
     var_range_s range;
     range.lower_bound = min_infinity;
     range.upper_bound = plus_infinity;
-
+    // var_ranges.insert(std::pair<llvm::Value*, llvm::Value*>(current_var,range)); 
+    var_ranges[current_var] = range;
+    
     if (llvm::PHINode *phi = llvm::dyn_cast<llvm::PHINode>(instruction)) {
         std::vector<var_range_st> phi_operands_range;
+
+
+
+
+
         for (int i = 0; i < (int)phi->getNumOperands(); i++) {
-            phi_operands_range.push_back(get_var_range(phi->getOperand(i)));
+
+            if (llvm::ConstantInt *variable_const = llvm::dyn_cast<llvm::ConstantInt>(phi->getOperand(i))) {
+                range.lower_bound = variable_const->getSExtValue();
+                range.upper_bound = variable_const->getSExtValue();
+                range.meta_data.constant = true;
+                phi_operands_range.push_back(range);
+                continue;
+            }
+            if (llvm::BinaryOperator *BIN = llvm::dyn_cast<llvm::BinaryOperator>(phi->getOperand(i))) {
+                switch (BIN->getOpcode())
+                {
+                case llvm::BinaryOperator::Add: {
+                    var_range_st temp_range = var_ranges[current_var];
+                    temp_range.meta_data.goes_up = true;
+                    var_ranges[current_var] = temp_range;
+                    log("hi");
+                    if (BIN->getOperand(0)->getName() == current_var->getName()) {
+                        // case where definition has a cycle
+                        for (auto r : phi_operands_range) {
+                            if (r.meta_data.constant && r.meta_data.goes_up) {
+                                temp_range.lower_bound = r.lower_bound;
+                                var_ranges[current_var] = temp_range;
+                            }
+                            else if (r.meta_data.constant && r.meta_data.goes_down) {
+                                temp_range.upper_bound = r.upper_bound;
+                                var_ranges[current_var] = temp_range;
+                            }
+                        }
+                    }
+                    break;
+                }
+                default:
+                    break;
+                }
+            }
+            
+
         }
-        range = range_union(phi_operands_range);
+        // range = range_union(phi_operands_range);
     }   
     else {
-        range = get_var_range(instruction);
+        // range = get_var_range(instruction);
     }
-    return range; 
+    return var_ranges[current_var]; 
 }
 
 
@@ -306,6 +348,7 @@ bool remove_redundant_bc(llvm::Function &F) {
                 CII++;
                 llvm::Value *size = CII->get();
                 log("index " << *index);
+                current_var = index;
                 var_range_s range = var_range_analysis(index);
                 log(index->getName() << "range: [" << range.lower_bound << "," << range.upper_bound << "]\n"); 
             }   
@@ -317,11 +360,8 @@ bool remove_redundant_bc(llvm::Function &F) {
 }
 
 
-
 bool do_bounds_check_elim(llvm::Module &M) {
     bool Changed = false;
-
-
 
     for (llvm::Function &F : M) {
         if (!shouldInstrument(&F)) {
