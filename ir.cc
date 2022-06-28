@@ -35,8 +35,8 @@ void run_passes(bool bc, bool bce) {
   }
 
   get_object_file("temporary_ir");
-  // -sccp
-  system("opt-14 -mem2reg -licm  temporary_ir.ll -S -o temporary_ir.ll");
+  // -sccp 
+  system("opt-14 -sccp -mem2reg -licm -sccp temporary_ir.ll -S -o temporary_ir.ll");
   llvm::SMDiagnostic err;
   module = llvm::parseIRFile("temporary_ir.ll", err, *context);
   system("unlink temporary_ir.ll");

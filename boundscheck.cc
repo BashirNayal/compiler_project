@@ -237,6 +237,7 @@ bool do_bounds_check(llvm::Module &M) {
 llvm::SmallVector<llvm::CallInst*>to_be_removed;
 std::map<llvm::Value*, var_range_s> var_ranges;
 llvm::Value *current_var;
+llvm::SmallVector<llvm::BasicBlock*>blocks_to_inspect;
 
 
 var_range_st range_union(std::vector<var_range_st> ranges) {
@@ -253,42 +254,30 @@ var_range_st range_union(std::vector<var_range_st> ranges) {
 }
 
 
-// var_range_st get_var_range(llvm::Value *variable) {
-//                     // log("size " << *size);
 
+bool extract_value(llvm::LoadInst *LI, int *value) {
 
-//     // var_range_s range;
-//     // range.lower_bound = min_infinity;
-//     // range.upper_bound = plus_infinity;
+    return false;
+}
 
-
-
-//     // else if (llvm::AllocaInst *AI = llvm::dyn_cast<llvm::AllocaInst>(variable)) {
-//     //     log("alloca");
-//     // }
-//     // else if (llvm::BinaryOperator *BIN = llvm::dyn_cast<llvm::BinaryOperator>(variable)) {
-//     //     log("binOp: " << *BIN);
-//     //     // log(*BIN->getParent());
-//     // }
-
-//     // return range;
-    
-// }
 
 var_range_st var_range_analysis(llvm::Value *instruction) {
-    var_range_s range;
+    var_range_s range = {0};
     range.lower_bound = min_infinity;
     range.upper_bound = plus_infinity;
     // var_ranges.insert(std::pair<llvm::Value*, llvm::Value*>(current_var,range)); 
     var_ranges[current_var] = range;
-    
+   if (llvm::ConstantInt *variable_const = llvm::dyn_cast<llvm::ConstantInt>(instruction)) {
+        range.lower_bound = variable_const->getSExtValue();
+        range.upper_bound = variable_const->getSExtValue();
+        range.meta_data.constant = true;
+        var_ranges[current_var] = range;
+        return range;
+    }
     if (llvm::PHINode *phi = llvm::dyn_cast<llvm::PHINode>(instruction)) {
         std::vector<var_range_st> phi_operands_range;
 
-
-
-
-
+        var_range_st temp_range = var_ranges[current_var];
         for (int i = 0; i < (int)phi->getNumOperands(); i++) {
 
             if (llvm::ConstantInt *variable_const = llvm::dyn_cast<llvm::ConstantInt>(phi->getOperand(i))) {
@@ -301,34 +290,95 @@ var_range_st var_range_analysis(llvm::Value *instruction) {
             if (llvm::BinaryOperator *BIN = llvm::dyn_cast<llvm::BinaryOperator>(phi->getOperand(i))) {
                 switch (BIN->getOpcode())
                 {
-                case llvm::BinaryOperator::Add: {
-                    var_range_st temp_range = var_ranges[current_var];
+                case llvm::BinaryOperator::Add: 
                     temp_range.meta_data.goes_up = true;
                     var_ranges[current_var] = temp_range;
-                    log("hi");
                     if (BIN->getOperand(0)->getName() == current_var->getName()) {
-                        // case where definition has a cycle
-                        for (auto r : phi_operands_range) {
-                            if (r.meta_data.constant && r.meta_data.goes_up) {
-                                temp_range.lower_bound = r.lower_bound;
-                                var_ranges[current_var] = temp_range;
-                            }
-                            else if (r.meta_data.constant && r.meta_data.goes_down) {
-                                temp_range.upper_bound = r.upper_bound;
-                                var_ranges[current_var] = temp_range;
-                            }
-                        }
+                        temp_range.meta_data.cyclic_def = true;
                     }
                     break;
-                }
+                case llvm::BinaryOperator::Sub: 
+                    temp_range.meta_data.goes_down = true;
+                    var_ranges[current_var] = temp_range;
+                    if (BIN->getOperand(0)->getName() == current_var->getName()) {
+                        temp_range.meta_data.cyclic_def = true;
+                    }
+                    break;
+                
                 default:
                     break;
                 }
             }
-            
+            log(*phi->getOperand(i));
+            if (llvm::LoadInst *LI = llvm::dyn_cast<llvm::LoadInst>(phi->getOperand(i))) {
+                int* value;
+                if (extract_value(LI, value)) {
 
+                }
+                log(*LI->getOperand(0));
+                log("printed");
+            }
+        }
+        for (auto r : phi_operands_range) {
+            if (r.meta_data.constant && temp_range.meta_data.goes_up && temp_range.meta_data.cyclic_def) {
+                temp_range.lower_bound = r.lower_bound;
+                var_ranges[current_var] = temp_range;
+            }
+            else if (r.meta_data.constant && temp_range.meta_data.goes_down && temp_range.meta_data.cyclic_def) {
+                temp_range.upper_bound = r.upper_bound;
+                var_ranges[current_var] = temp_range;
+            }
+            else {}
         }
         // range = range_union(phi_operands_range);
+        llvm::BasicBlock *current_bb = phi->getParent();
+        // llvm::BasicBlock::InstListType instruction_list = current_bb->getInstList()
+        for (auto II = current_bb->begin(), E = current_bb->end() ; II != E; ++II) {
+            if (llvm::CmpInst *CI = llvm::dyn_cast<llvm::CmpInst>(II)) {
+                llvm::Value *lhs = CI->getOperand(0);
+                llvm::Value *rhs = CI->getOperand(1);
+                if (lhs->getName() == current_var->getName()) {
+                    if (llvm::ConstantInt *variable_const = llvm::dyn_cast<llvm::ConstantInt>(rhs)) {
+                        int i = 0;
+                        while (temp_range.meta_data.conditinoals[i] != NULL) {
+                            i++;
+                        }
+                        CI->setName("cmp"); 
+                        temp_range.meta_data.conditinoals[i] = CI;
+                        temp_range.meta_data.split_at[i] = variable_const->getSExtValue();
+                        var_ranges[current_var] = temp_range;
+                    }
+                }
+                else if (rhs->getName() == current_var->getName()) {
+                    if (llvm::ConstantInt *variable_const = llvm::dyn_cast<llvm::ConstantInt>(lhs)) {
+                        int i = 0;
+                        while (temp_range.meta_data.conditinoals[i] != NULL) {
+                            i++;
+                        }
+                        temp_range.meta_data.conditinoals[i] = CI;
+                        temp_range.meta_data.split_at[i] = variable_const->getSExtValue();
+                        var_ranges[current_var] = temp_range;
+                    }
+                }
+                 
+            }
+            if (llvm::BranchInst *BI = llvm::dyn_cast<llvm::BranchInst>(II)) {
+                if (BI->getNumOperands() == 0) {
+                }
+                else if (BI->getOperand(0) == temp_range.meta_data.conditinoals[0]) {
+                    llvm::CmpInst *temp_cmp = llvm::dyn_cast<llvm::CmpInst>(BI->getOperand(0));
+                    switch (temp_cmp->getOpcode()) {
+                    case llvm::CmpInst::Predicate::ICMP_SLT:
+                    case 53:
+                        temp_range.upper_bound = temp_range.meta_data.split_at[0];
+                        var_ranges[current_var] = temp_range;
+                        break;
+                    default:
+                        break;
+                    }
+                }
+            }
+        }
     }   
     else {
         // range = get_var_range(instruction);
@@ -347,16 +397,24 @@ bool remove_redundant_bc(llvm::Function &F) {
                 llvm::Value *index = CII->get();
                 CII++;
                 llvm::Value *size = CII->get();
-                log("index " << *index);
+                // log("index " << *index);
                 current_var = index;
                 var_range_s range = var_range_analysis(index);
-                log(index->getName() << "range: [" << range.lower_bound << "," << range.upper_bound << "]\n"); 
+                log(index->getName() << "'s range: [" << range.lower_bound << "," << range.upper_bound << "]\n"); 
+                llvm::ConstantInt *variable_const = llvm::dyn_cast<llvm::ConstantInt>(size);
+                if (variable_const && range.upper_bound < variable_const->getSExtValue()) {
+                    to_be_removed.push_back(CI);
+                }
+
             }   
         }
     }
     for (int i = 0; i < to_be_removed.size(); i++) {
+        log("removing " << to_be_removed[i]);
+        if (to_be_removed[i])
         to_be_removed[i]->eraseFromParent();
     }
+    to_be_removed.clear();
 }
 
 
