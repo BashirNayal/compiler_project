@@ -37,6 +37,7 @@ void run_passes(bool bc, bool bce) {
   get_object_file("temporary_ir");
   // -sccp 
   system("opt-14 -sccp -mem2reg -licm -sccp temporary_ir.ll -S -o temporary_ir.ll");
+  
   llvm::SMDiagnostic err;
   module = llvm::parseIRFile("temporary_ir.ll", err, *context);
   system("unlink temporary_ir.ll");
@@ -257,6 +258,7 @@ llvm::Value *Operator::codegen() {
       break;
     case MIN_t: 
       inst = llvm::BinaryOperator::CreateSub(lhs_ir, rhs_ir, "");
+      log(*inst);
       break;
     case AND_t: 
       inst = llvm::BinaryOperator::CreateAnd(lhs_ir, rhs_ir, "");

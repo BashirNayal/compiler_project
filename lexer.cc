@@ -171,6 +171,12 @@ token_st gettok(void) {
           return gettok();
       }
       break;
+    case '&':
+    if (last_char == '&') {
+        token.type = AND_t;
+        last_char = getchar();
+        // break;
+    }
   }
    
   return token;
