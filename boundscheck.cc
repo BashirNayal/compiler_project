@@ -291,6 +291,7 @@ var_range_st var_range_analysis(llvm::Value *instruction) {
                 switch (BIN->getOpcode())
                 {
                 case llvm::BinaryOperator::Add: 
+                case llvm::BinaryOperator::Mul: 
                     temp_range.meta_data.goes_up = true;
                     var_ranges[current_var] = temp_range;
                     if (BIN->getOperand(0)->getName() == current_var->getName()) {
@@ -298,6 +299,8 @@ var_range_st var_range_analysis(llvm::Value *instruction) {
                     }
                     break;
                 case llvm::BinaryOperator::Sub: 
+                case llvm::BinaryOperator::SDiv:
+                case llvm::BinaryOperator::UDiv: 
                     temp_range.meta_data.goes_down = true;
                     var_ranges[current_var] = temp_range;
                     if (BIN->getOperand(0)->getName() == current_var->getName()) {
@@ -325,10 +328,11 @@ var_range_st var_range_analysis(llvm::Value *instruction) {
                 var_ranges[current_var] = temp_range;
             }
             else if (r.meta_data.constant && temp_range.meta_data.goes_down && temp_range.meta_data.cyclic_def) {
-                temp_range.upper_bound = r.upper_bound;
+                temp_range.lower_bound = r.upper_bound;
                 var_ranges[current_var] = temp_range;
             }
             else {}
+
         }
         // range = range_union(phi_operands_range);
         llvm::BasicBlock *current_bb = phi->getParent();
@@ -383,6 +387,14 @@ var_range_st var_range_analysis(llvm::Value *instruction) {
     else {
         // range = get_var_range(instruction);
     }
+    var_range_st temp_range = var_ranges[current_var]; 
+    if (temp_range.upper_bound < temp_range.lower_bound) {
+        int temp_bound = temp_range.upper_bound;
+        temp_range.upper_bound = temp_range.lower_bound;
+        temp_range.lower_bound = temp_bound;
+        var_ranges[current_var] = temp_range;
+
+    }
     return var_ranges[current_var]; 
 }
 
@@ -402,7 +414,7 @@ bool remove_redundant_bc(llvm::Function &F) {
                 var_range_s range = var_range_analysis(index);
                 log(index->getName() << "'s range: [" << range.lower_bound << "," << range.upper_bound << "]\n"); 
                 llvm::ConstantInt *variable_const = llvm::dyn_cast<llvm::ConstantInt>(size);
-                if (variable_const && range.upper_bound < variable_const->getSExtValue()) {
+                if (variable_const && range.upper_bound <= variable_const->getSExtValue()) {
                     to_be_removed.push_back(CI);
                 }
 
@@ -410,7 +422,6 @@ bool remove_redundant_bc(llvm::Function &F) {
         }
     }
     for (int i = 0; i < to_be_removed.size(); i++) {
-        log("removing " << to_be_removed[i]);
         if (to_be_removed[i])
         to_be_removed[i]->eraseFromParent();
     }
