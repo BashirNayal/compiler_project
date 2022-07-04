@@ -1,7 +1,7 @@
 #!/bin/bash
 SCRIPTPATH="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 
-do_hundred_runs() {
+do_thousand_runs() {
     bin_files=$SCRIPTPATH/examples/*.bin
 
     # echo "HI"
@@ -15,7 +15,6 @@ do_hundred_runs() {
     :> "$SCRIPTPATH/benchmarks/$2/${name::-4}.txt"
     # echo "$SCRIPTPATH/benchmarks/$2/${name::-4}.txt"
   done
-
   for k in {1..1000};
   do
     for file in $bin_files
@@ -25,7 +24,9 @@ do_hundred_runs() {
         res=$($SCRIPTPATH/examples/$name)
         echo $res  >> "$SCRIPTPATH/benchmarks/$2/${name::-4}.txt"
     done
+  printf "\r%d%%" $(($k / 10))
   done
+  printf "\n"
 
 }
 
@@ -38,18 +39,20 @@ do
  ./comp.bin $file >/dev/null 2>&1
  trimmed_name=${name::-2}
 done
- do_hundred_runs $trimmed_name 0
-
+echo benchmarking without bounds-checks
+ do_thousand_runs $trimmed_name 0
 for file in $programs_files
 do
  ./comp.bin $file -d >/dev/null 2>&1
 done
-do_hundred_runs $trimmed_name 1
+echo benchmarking with bounds-checks
+do_thousand_runs $trimmed_name 1
 
 for file in $programs_files
 do
  ./comp.bin $file -d -d >/dev/null 2>&1
 done
-do_hundred_runs $trimmed_name 2
+echo benchmarking with bounds-checks elimination
+do_thousand_runs $trimmed_name 2
 
 echo Done
