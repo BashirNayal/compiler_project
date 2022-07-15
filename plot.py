@@ -18,7 +18,7 @@ figure, axis = plt.subplots(2, 2)
 algo_names = ["selection sort","bubble sort","simple loop","merge sort"]
 
 # file = (selectionsort_ouput.read().split("\n"))
-files = [selectionsort_ouput.read().split("\n"),bubblesort_output.read().split("\n"),simpleloop_ouput.read().split("\n"),mergesort_ouput.read().split("\n")]
+files = [selectionsort_ouput.read().split("\n"),bubblesort_output.read().split("\n"),simpleloop_ouput.read().split("\n"),insertionsort_ouput.read().split("\n")]
 count = 0
 for file in files:
     w_boundschecks_x = []

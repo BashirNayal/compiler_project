@@ -306,6 +306,5 @@ void print_token(token_st token = global_token) {
 }
 
 token_st getNextToken() {
-  print_token(global_token);
   return global_token = gettok();
 }

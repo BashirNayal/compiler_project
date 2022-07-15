@@ -15,10 +15,6 @@ extern Type_en      global_type;
 
 int main(int argc, char** argv) {
   setvbuf(stdout, NULL, _IONBF, 0);
-  BinopPrecedence[GT_t] = 10;
-  BinopPrecedence[PLUS_t] = 20;
-  BinopPrecedence[MIN_t] = 20;
-  BinopPrecedence[MUL_t] = 40;  // highest.
   bool bound_check = false, bound_check_elimination = false;
   char* program_name = argv[1];
   if (argc > 2) {
@@ -34,7 +30,7 @@ int main(int argc, char** argv) {
 
   stdin = fopen(program_name, "r");
 
-
+  
 
   int i = 0;
   global_token = {};
@@ -45,36 +41,23 @@ int main(int argc, char** argv) {
   while(true) {
     switch (global_token.type) {
       case EOF_t:
-        printf("reached EOF token\n");
         goto codegen;
-      case ID_t:
-        // parse_identifier_exp();
         break;
       case TYPE_t:
-        printf("found a type\n");
         global_type = global_token.data.data_type;
-        // expression = parse_id_or_fun();
         expressions.push_back(parse_typed_expression());
-
-        // getNextToken();
-        // parse_identifier_exp();
       break;
-
       case EXTERN_t:
-        printf("found extern\n");
         handle_extern();
         break;
       default:
         getNextToken();
-        // handle_top_level_exp();
     }
   }
   codegen:
-    for (int i = 0; i < expressions.size(); i ++) {
-      expressions.at(i)->print("");
-    }
     
     init_module();
+    // Turn AST to LLVM IR
     for (int i = 0; i < expressions.size(); i ++) {
       expressions.at(i)->codegen();
     }
